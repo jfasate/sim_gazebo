@@ -1,0 +1,32 @@
+# Defaults for sim_launch.py — edit here instead of typing args every time.
+# Any CLI arg still wins:
+#   ros2 launch f1tenth_gym_gazebo sim_launch.py map_name:=oval_loop rviz:=false
+#
+# map_name must be one of the generated maps (see
+# maps/generated_safe_maps_spawns.yaml); the spawn pose is read from there.
+map_name: road_00
+
+rviz: true
+gui: true
+spawn_car: true
+require_clean_runtime: true
+
+# Sensor ablation — these are xacro args, so the URDF is rebuilt per launch.
+enable_lidar2d: true
+enable_lidar3d: true
+enable_camera_d435: true
+enable_imu: true
+
+# Camera mount. At the original 0.2025 m the usable ground range was ~2.15 m,
+# short of lane_assist's 3.0 m x_max, which starved the lane fit in corners.
+# 0.40 m doubles rows-per-metre and gives ~3.05 m. Raising it does NOT change
+# the 0.72 m near limit, which is set by horizontal FOV.
+# lane_assist_params.yaml cam_height / cam_pitch MUST match these.
+camera_mount_z: 0.40
+camera_pitch: 0.0463
+
+# /clock publish rate [Hz] for gzserver. gazebo_ros_init defaults this to 10,
+# which throttles every use_sim_time node down with it (plant 100 Hz, MPC
+# 50 Hz) and makes the car stutter. sim_launch writes this into the temp
+# --ros-args --params-file it hands gzserver, so config/ stays one yaml.
+gazebo_publish_rate: 200.0

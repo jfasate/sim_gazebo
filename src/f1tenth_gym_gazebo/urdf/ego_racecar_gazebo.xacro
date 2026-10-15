@@ -1,0 +1,586 @@
+<?xml version="1.0"?>
+<!--
+  F1Tenth Racecar URDF/Xacro for Gazebo Classic 11 + ROS2 Humble
+
+  Visual model matches f1tenth_gym_ros/ego_racecar.xacro exactly,
+  with Gazebo physics (collision + inertial) and sensor plugins added.
+  Only addition over gym_ros: Intel RealSense D435 camera.
+
+  Author: Jayesh Fasate (jfasate@purdue.edu)
+-->
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="f1tenth_racecar">
+
+  <!-- ============================================================ -->
+  <!--  Parameters — identical to f1tenth_gym_ros                    -->
+  <!-- ============================================================ -->
+  <xacro:property name="wheelbase"      value="0.3302" />
+  <xacro:property name="width"          value="0.2032" />
+  <xacro:property name="height"         value="0.1" />
+  <xacro:property name="ground_offset"  value="0.04" />
+  <xacro:property name="wheel_radius"   value="0.0508" />
+  <xacro:property name="wheel_length"   value="0.0381" />
+  <xacro:property name="laser_distance_from_base_link" value="0.275" />
+  <xacro:property name="laser_height"   value="0.05" />
+  <xacro:property name="laser_radius"   value="0.026" />
+  <xacro:property name="car_name"       value="ego_racecar" />
+
+  <!-- Camera mount (D435: 90mm x 25mm x 25mm) — only addition over gym_ros -->
+  <xacro:property name="camera_x"       value="0.275" />
+  <xacro:property name="camera_z"       value="${ground_offset + height + laser_height + 0.0125}" />
+  <xacro:property name="camera_length"  value="0.090" />
+  <xacro:property name="camera_width"   value="0.025" />
+  <xacro:property name="camera_height"  value="0.025" />
+
+  <!-- 3D LiDAR mount (roof center) — Phase 1 -->
+  <xacro:property name="lidar3d_x"      value="${wheelbase/2}" />
+  <xacro:property name="lidar3d_z"      value="${ground_offset + height + 0.06}" />
+
+  <!-- ============================================================ -->
+  <!--  Sensor enable flags — ablate any subset from the launch file -->
+  <!--    xacro ego_racecar_gazebo.xacro enable_lidar3d:=false ...    -->
+  <!-- ============================================================ -->
+  <xacro:arg name="enable_lidar2d"     default="true"/>
+  <xacro:arg name="enable_lidar3d"     default="true"/>
+  <xacro:arg name="enable_camera_d435" default="true"/>
+  <xacro:arg name="enable_imu"         default="true"/>
+  <xacro:arg name="lidar3d_channels"   default="16"/>
+  <xacro:arg name="lidar3d_rate"       default="10"/>
+  <xacro:arg name="camera_mount_z"     default="0.40"/>
+  <xacro:arg name="camera_pitch"       default="0.0463"/>
+  <xacro:property name="camera_mount_z" value="$(arg camera_mount_z)"/>
+  <xacro:property name="camera_pitch"   value="$(arg camera_pitch)"/>
+
+  <!-- ============================================================ -->
+  <!--  Materials                                                    -->
+  <!-- ============================================================ -->
+  <material name="black">
+    <color rgba="0.2 0.2 0.2 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0.3 0.57 1.0 1.0"/>
+  </material>
+  <material name="silver">
+    <color rgba="0.75 0.75 0.75 1.0"/>
+  </material>
+
+  <!-- ============================================================ -->
+  <!--  Chassis (base_link) — matches gym_ros exactly                -->
+  <!-- ============================================================ -->
+  <link name="${car_name}/base_link">
+    <visual>
+      <origin xyz="${wheelbase/2} 0 ${ground_offset + height/2}"/>
+      <geometry>
+        <box size="${wheelbase} ${width} ${height}"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="${wheelbase/2} 0 ${ground_offset + height/2}"/>
+      <geometry>
+        <box size="${wheelbase} ${width} ${height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="${wheelbase/2} 0 ${ground_offset + height/2}"/>
+      <mass value="3.47"/>
+      <inertia ixx="0.010609" ixy="0" ixz="0"
+               iyy="0.050409" iyz="0"
+               izz="0.054166"/>
+    </inertial>
+  </link>
+
+  <!-- ============================================================ -->
+  <!--  LiDAR mount — visual matches gym_ros laser_model             -->
+  <!-- ============================================================ -->
+  <joint name="base_to_laser_model" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/laser_model"/>
+    <origin xyz="${laser_distance_from_base_link} 0 ${ground_offset + height + laser_height/2}"/>
+  </joint>
+  <link name="${car_name}/laser_model">
+    <visual>
+      <geometry>
+        <cylinder radius="${laser_radius}" length="${laser_height}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${laser_radius}" length="${laser_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.13"/>
+      <inertia ixx="0.000025" ixy="0" ixz="0"
+               iyy="0.000025" iyz="0"
+               izz="0.000011"/>
+    </inertial>
+  </link>
+
+  <!-- ============================================================ -->
+  <!--  Rear Wheels — matches gym_ros naming (back_left/right_wheel) -->
+  <!-- ============================================================ -->
+  <joint name="base_to_back_left_wheel" type="continuous">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/back_left_wheel"/>
+    <origin xyz="0 ${(wheel_length + width)/2} ${wheel_radius}"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <link name="${car_name}/back_left_wheel">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="${pi/2} 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <origin rpy="${pi/2} 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.000065" ixy="0" ixz="0"
+               iyy="0.000065" iyz="0"
+               izz="0.000129"/>
+    </inertial>
+  </link>
+
+  <joint name="base_to_back_right_wheel" type="continuous">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/back_right_wheel"/>
+    <origin xyz="0 ${-(wheel_length + width)/2} ${wheel_radius}"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <link name="${car_name}/back_right_wheel">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="${pi/2} 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <origin rpy="${pi/2} 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.000065" ixy="0" ixz="0"
+               iyy="0.000065" iyz="0"
+               izz="0.000129"/>
+    </inertial>
+  </link>
+
+  <!-- ============================================================ -->
+  <!--  Front Steering — matches gym_ros naming + Ackermann          -->
+  <!-- ============================================================ -->
+  <joint name="base_to_front_left_hinge" type="revolute">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/front_left_hinge"/>
+    <origin xyz="${wheelbase} ${(wheel_length + width)/2} ${wheel_radius}"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.6" upper="0.6" effort="10" velocity="10"/>
+  </joint>
+  <link name="${car_name}/front_left_hinge">
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0"
+               iyy="0.000001" iyz="0"
+               izz="0.000001"/>
+    </inertial>
+  </link>
+
+  <joint name="front_left_hinge_to_wheel" type="continuous">
+    <parent link="${car_name}/front_left_hinge"/>
+    <child link="${car_name}/front_left_wheel"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <link name="${car_name}/front_left_wheel">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="${pi/2} 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <origin rpy="${pi/2} 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.000065" ixy="0" ixz="0"
+               iyy="0.000065" iyz="0"
+               izz="0.000129"/>
+    </inertial>
+  </link>
+
+  <joint name="base_to_front_right_hinge" type="revolute">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/front_right_hinge"/>
+    <origin xyz="${wheelbase} ${-(wheel_length + width)/2} ${wheel_radius}"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.6" upper="0.6" effort="10" velocity="10"/>
+  </joint>
+  <link name="${car_name}/front_right_hinge">
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0"
+               iyy="0.000001" iyz="0"
+               izz="0.000001"/>
+    </inertial>
+  </link>
+
+  <joint name="front_right_hinge_to_wheel" type="continuous">
+    <parent link="${car_name}/front_right_hinge"/>
+    <child link="${car_name}/front_right_wheel"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <link name="${car_name}/front_right_wheel">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="${pi/2} 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      <origin rpy="${pi/2} 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.000065" ixy="0" ixz="0"
+               iyy="0.000065" iyz="0"
+               izz="0.000129"/>
+    </inertial>
+  </link>
+
+  <!-- ============================================================ -->
+  <!--  Intel RealSense D435 Camera — ONLY addition over gym_ros     -->
+  <!-- ============================================================ -->
+  <!-- Mount height above ground and down-pitch are launch args so the camera can
+       be raised without editing this file. At 0.2025 m the ground from 3 m to
+       the horizon spans only ~42 of 480 rows and usable range is ~2.15 m, short
+       of the detector's 3.0 m x_max; 0.40 m roughly doubles rows-per-metre and
+       brings usable range to ~3.05 m. Raising the mount does NOT change the
+       0.72 m near limit, which is set by horizontal FOV.
+       lane_assist cam_height/cam_pitch MUST match these. -->
+  <!-- Mast: a rod from the top of the laser puck up to the camera, so a raised
+       camera is visibly supported instead of floating. Purely structural; it
+       carries no sensor. Skipped when the camera sits at or below the puck. -->
+  <xacro:property name="laser_top_z" value="${ground_offset + height + laser_height}"/>
+  <xacro:property name="mast_length" value="${camera_mount_z - camera_height/2 - laser_top_z}"/>
+  <xacro:if value="${mast_length > 0.005}">
+    <joint name="camera_mast_joint" type="fixed">
+      <parent link="${car_name}/laser_model"/>
+      <child link="${car_name}/camera_mast_link"/>
+      <origin xyz="0 0 ${laser_top_z + mast_length/2
+                        - (ground_offset + height + laser_height/2)}"/>
+    </joint>
+    <link name="${car_name}/camera_mast_link">
+      <visual>
+        <geometry><cylinder radius="0.010" length="${mast_length}"/></geometry>
+        <material name="black"/>
+      </visual>
+      <inertial>
+        <mass value="0.03"/>
+        <inertia ixx="0.00001" ixy="0" ixz="0"
+                 iyy="0.00001" iyz="0" izz="0.000002"/>
+      </inertial>
+    </link>
+    <gazebo reference="${car_name}/camera_mast_link">
+      <gravity>false</gravity>
+      <material>Gazebo/Black</material>
+    </gazebo>
+  </xacro:if>
+
+  <joint name="camera_joint" type="fixed">
+    <parent link="${car_name}/laser_model"/>
+    <child link="${car_name}/camera_link"/>
+    <origin xyz="0 0 ${camera_mount_z - (ground_offset + height + laser_height/2)}"
+            rpy="0 ${camera_pitch} 0"/>
+  </joint>
+  <link name="${car_name}/camera_link">
+    <visual>
+      <geometry>
+        <box size="${camera_length} ${camera_width} ${camera_height}"/>
+      </geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${camera_length} ${camera_width} ${camera_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.072"/>
+      <inertia ixx="0.000005" ixy="0" ixz="0"
+               iyy="0.000025" iyz="0"
+               izz="0.000025"/>
+    </inertial>
+  </link>
+
+  <!-- Camera optical frame (Z forward, X right, Y down) -->
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="${car_name}/camera_link"/>
+    <child link="${car_name}/camera_optical_link"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+  <link name="${car_name}/camera_optical_link"/>
+
+  <!-- ============================================================ -->
+  <!--  Gazebo Sensor Plugins                                        -->
+  <!-- ============================================================ -->
+
+  <!-- 2D LiDAR (Hokuyo) -->
+  <xacro:if value="$(arg enable_lidar2d)">
+  <gazebo reference="${car_name}/laser_model">
+    <sensor name="lidar" type="ray">
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>20</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>1080</samples>
+            <resolution>1</resolution>
+            <min_angle>-2.35</min_angle>
+            <max_angle>2.35</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.10</min>
+          <max>30.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="laser" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=/scan</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>${car_name}/laser_model</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+  </xacro:if>
+
+  <!-- ============================================================ -->
+  <!--  3D LiDAR (Velodyne-style) — Phase 1                          -->
+  <!-- ============================================================ -->
+  <xacro:if value="$(arg enable_lidar3d)">
+  <joint name="base_to_lidar_3d" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/lidar_3d_link"/>
+    <origin xyz="${lidar3d_x} 0 ${lidar3d_z}"/>
+  </joint>
+  <link name="${car_name}/lidar_3d_link">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.06"/></geometry>
+      <material name="black"/>
+    </visual>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00005"/>
+    </inertial>
+  </link>
+  <!-- gravity off — co-sim prescribes pose, physics must not fight it -->
+  <gazebo reference="${car_name}/lidar_3d_link"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/lidar_3d_link">
+    <!-- gpu_ray needs GPU rendering (present — cameras render). Fallback: type="ray" (CPU). -->
+    <sensor name="lidar_3d" type="gpu_ray">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>$(arg lidar3d_rate)</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>900</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>$(arg lidar3d_channels)</samples>
+            <resolution>1</resolution>
+            <min_angle>-0.2618</min_angle>
+            <max_angle>0.2618</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>0.3</min>
+          <max>100.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.008</stddev>
+        </noise>
+      </ray>
+      <plugin name="lidar_3d" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=/lidar/points</remapping>
+        </ros>
+        <output_type>sensor_msgs/PointCloud2</output_type>
+        <frame_name>${car_name}/lidar_3d_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+  </xacro:if>
+
+  <!-- Camera D435 (RGB color + depth streams) -->
+  <xacro:if value="$(arg enable_camera_d435)">
+  <!-- RGB Camera (D435 color stream) -->
+  <gazebo reference="${car_name}/camera_link">
+    <sensor name="camera_rgb" type="camera">
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>15</update_rate>
+      <camera>
+        <horizontal_fov>1.2112</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>15.0</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+      <plugin name="camera_rgb_controller" filename="libgazebo_ros_camera.so">
+        <camera_name>camera/color</camera_name>
+        <frame_name>${car_name}/camera_optical_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- Depth Camera (D435 depth stream) -->
+  <gazebo reference="${car_name}/camera_link">
+    <sensor name="camera_depth" type="depth">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>15</update_rate>
+      <camera>
+        <horizontal_fov>1.5184</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R_FLOAT32</format>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>10.0</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.005</stddev>
+        </noise>
+      </camera>
+      <plugin name="camera_depth_controller" filename="libgazebo_ros_camera.so">
+        <camera_name>camera/depth</camera_name>
+        <frame_name>${car_name}/camera_optical_link</frame_name>
+        <min_depth>0.1</min_depth>
+        <max_depth>10.0</max_depth>
+      </plugin>
+    </sensor>
+  </gazebo>
+  </xacro:if>
+
+  <!-- IMU -->
+  <joint name="imu_joint" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/imu_link"/>
+    <origin xyz="${wheelbase/2} 0 ${ground_offset + height/2}" rpy="0 0 0"/>
+  </joint>
+  <link name="${car_name}/imu_link">
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0"
+               iyy="0.000001" iyz="0"
+               izz="0.000001"/>
+    </inertial>
+  </link>
+
+  <xacro:if value="$(arg enable_imu)">
+  <gazebo reference="${car_name}/imu_link">
+    <gravity>true</gravity>
+    <sensor name="imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0</mean><stddev>0.0002</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0</mean><stddev>0.0002</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0</mean><stddev>0.0002</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0</mean><stddev>0.017</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0</mean><stddev>0.017</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0</mean><stddev>0.017</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+      <plugin name="imu_controller" filename="libgazebo_ros_imu_sensor.so">
+        <ros>
+          <remapping>~/out:=/imu</remapping>
+        </ros>
+        <frame_name>${car_name}/imu_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+  </xacro:if>
+
+  <!-- ============================================================ -->
+  <!--  Co-simulation: motion is integrated externally by the        -->
+  <!--  dynamics_plant node (double-track + combined-slip Pacejka)    -->
+  <!--  and written back via /set_entity_state. Gazebo is the sensor  -->
+  <!--  renderer only, so NO drive plugin here. Gravity is disabled   -->
+  <!--  on every link so the physics engine does not fight the        -->
+  <!--  prescribed pose between updates. Odom + /joint_states are      -->
+  <!--  published by the plant node.                                  -->
+  <!-- ============================================================ -->
+  <gazebo>
+    <plugin name="joint_pose_trajectory"
+            filename="libgazebo_ros_joint_pose_trajectory.so">
+      <ros>
+        <remapping>set_joint_trajectory:=/set_joint_trajectory</remapping>
+      </ros>
+      <update_rate>100</update_rate>
+    </plugin>
+  </gazebo>
+
+  <gazebo reference="${car_name}/base_link"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/laser_model"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/back_left_wheel"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/back_right_wheel"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/front_left_hinge"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/front_left_wheel"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/front_right_hinge"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/front_right_wheel"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/camera_link"><gravity>false</gravity></gazebo>
+  <gazebo reference="${car_name}/imu_link"><gravity>false</gravity></gazebo>
+
+</robot>

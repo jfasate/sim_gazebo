@@ -1,0 +1,30 @@
+# colcon workspace output
+/build/
+/install/
+/log/
+**/build/
+**/install/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# lane_assist data, runs and weights (large, regenerable)
+src/lane_assist/dataset/
+src/lane_assist/log/
+src/lane_assist/models/
+
+# lpv_mpc run logs
+src/lpv_mpc_gazebo/log/
+
+# generated road maps (1.7 GB): rebuild with tools/maps/make_road_maps.py (truth/ is tracked)
+src/f1tenth_gym_gazebo/models/road_*/
+src/f1tenth_gym_gazebo/maps/road_*
+src/f1tenth_gym_gazebo/worlds/road_*
+
+# editor / agent folders
+.vscode/
+.claude/
+.codex/
+.agents/

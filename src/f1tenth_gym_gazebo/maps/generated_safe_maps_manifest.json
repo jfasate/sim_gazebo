@@ -1,0 +1,1128 @@
+{
+  "straight_corridor": {
+    "name": "straight_corridor",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/straight_corridor.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/straight_corridor.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/straight_corridor_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/straight_corridor/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/straight_corridor.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/straight_corridor.world",
+    "n_points": 231,
+    "length_m": 23.0,
+    "min_clearance_m": 0.9500000000000001,
+    "vx_mps": 1.2,
+    "closed": false,
+    "spawn": {
+      "x": -11.5,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "s_curve": {
+    "name": "s_curve",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/s_curve.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/s_curve.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/s_curve_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/s_curve/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/s_curve.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/s_curve.world",
+    "n_points": 239,
+    "length_m": 23.765949498149585,
+    "min_clearance_m": 0.8487440255983003,
+    "vx_mps": 1.0,
+    "closed": false,
+    "spawn": {
+      "x": 10.300000000000292,
+      "y": 0.595771399936992,
+      "yaw": 2.443841394580937
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "oval_loop": {
+    "name": "oval_loop",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/oval_loop.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/oval_loop.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/oval_loop_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/oval_loop/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/oval_loop.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/oval_loop.world",
+    "n_points": 414,
+    "length_m": 41.385679077472695,
+    "min_clearance_m": 1.4178019644826554,
+    "vx_mps": 1.2,
+    "closed": true,
+    "spawn": {
+      "x": 8.0,
+      "y": 0.0,
+      "yaw": 1.572964229093602
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "t_junction": {
+    "name": "t_junction",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/t_junction.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/t_junction.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/t_junction_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/t_junction/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/t_junction.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/t_junction.world",
+    "n_points": 195,
+    "length_m": 19.35564028400117,
+    "min_clearance_m": 0.6999999999999944,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": 9.000000000000007,
+      "y": 0.0,
+      "yaw": 3.141592653589793
+    },
+    "routes_available": [
+      "right",
+      "left"
+    ]
+  },
+  "obstacle_corridor": {
+    "name": "obstacle_corridor",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/obstacle_corridor.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/obstacle_corridor.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/obstacle_corridor_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/obstacle_corridor/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/obstacle_corridor.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/obstacle_corridor.world",
+    "n_points": 243,
+    "length_m": 24.180133151223977,
+    "min_clearance_m": 0.8500301409975004,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": -11.5,
+      "y": -0.2296100594190543,
+      "yaw": -0.4045632086539908
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "gentle_chicane": {
+    "name": "gentle_chicane",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/gentle_chicane.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/gentle_chicane.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/gentle_chicane_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/gentle_chicane/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/gentle_chicane.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/gentle_chicane.world",
+    "n_points": 227,
+    "length_m": 22.540786517731874,
+    "min_clearance_m": 0.6828550414617851,
+    "vx_mps": 1.0,
+    "closed": false,
+    "spawn": {
+      "x": 10.90000000000031,
+      "y": 0.42602301705576695,
+      "yaw": 2.782132269787822
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "double_s_curve": {
+    "name": "double_s_curve",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/double_s_curve.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/double_s_curve.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/double_s_curve_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/double_s_curve/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/double_s_curve.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/double_s_curve.world",
+    "n_points": 279,
+    "length_m": 27.775634692145648,
+    "min_clearance_m": 0.8086479891138139,
+    "vx_mps": 1.0,
+    "closed": false,
+    "spawn": {
+      "x": -12.3,
+      "y": 0.5310525650056447,
+      "yaw": 0.6265005668245472
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "wide_junction": {
+    "name": "wide_junction",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/wide_junction.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/wide_junction.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/wide_junction_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/wide_junction/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/wide_junction.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/wide_junction.world",
+    "n_points": 181,
+    "length_m": 18.0,
+    "min_clearance_m": 1.4500000000000002,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": 0.0,
+      "y": -9.0,
+      "yaw": 1.5707963267948966
+    },
+    "routes_available": [
+      "straight",
+      "left",
+      "right"
+    ]
+  },
+  "narrow_gate": {
+    "name": "narrow_gate",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/narrow_gate.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/narrow_gate.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/narrow_gate_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/narrow_gate/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/narrow_gate.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/narrow_gate.world",
+    "n_points": 231,
+    "length_m": 23.0,
+    "min_clearance_m": 0.7000000000000001,
+    "vx_mps": 0.6,
+    "closed": false,
+    "spawn": {
+      "x": -11.5,
+      "y": 0.0,
+      "yaw": 0.0
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "offset_obstacles": {
+    "name": "offset_obstacles",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/offset_obstacles.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/offset_obstacles.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/offset_obstacles_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/offset_obstacles/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/offset_obstacles.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/offset_obstacles.world",
+    "n_points": 245,
+    "length_m": 24.343727982656286,
+    "min_clearance_m": 0.9502444754027636,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": 11.500000000000327,
+      "y": -0.12155372436700881,
+      "yaw": 2.6919202639159985
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "parking_lot_loop": {
+    "name": "parking_lot_loop",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/parking_lot_loop.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/parking_lot_loop.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/parking_lot_loop_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/parking_lot_loop/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/parking_lot_loop.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/parking_lot_loop.world",
+    "n_points": 558,
+    "length_m": 55.706895129074134,
+    "min_clearance_m": 1.4148536520322714,
+    "vx_mps": 1.0,
+    "closed": true,
+    "spawn": {
+      "x": 8.5,
+      "y": 4.0,
+      "yaw": 1.5893468928888763
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "hairpin_safe": {
+    "name": "hairpin_safe",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/hairpin_safe.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/hairpin_safe.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/hairpin_safe_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/hairpin_safe/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/hairpin_safe.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/hairpin_safe.world",
+    "n_points": 376,
+    "length_m": 37.42414775310128,
+    "min_clearance_m": 0.65,
+    "vx_mps": 0.7,
+    "closed": false,
+    "spawn": {
+      "x": -8.99999999999995,
+      "y": -3.0,
+      "yaw": 0.0
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "figure_eight_soft": {
+    "name": "figure_eight_soft",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/figure_eight_soft.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/figure_eight_soft.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/figure_eight_soft_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/figure_eight_soft/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/figure_eight_soft.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/figure_eight_soft.world",
+    "n_points": 550,
+    "length_m": 54.994636325480215,
+    "min_clearance_m": 2.0,
+    "vx_mps": 0.8,
+    "closed": true,
+    "spawn": {
+      "x": -0.060176602646371445,
+      "y": -0.07521816236574108,
+      "yaw": -2.245598249184598
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "warehouse_aisles": {
+    "name": "warehouse_aisles",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/warehouse_aisles.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/warehouse_aisles.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/warehouse_aisles_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/warehouse_aisles/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/warehouse_aisles.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/warehouse_aisles.world",
+    "n_points": 561,
+    "length_m": 55.999999999999886,
+    "min_clearance_m": 1.5,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": 7.999999999999943,
+      "y": -4.0,
+      "yaw": 3.141592653589793
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "slalom_corridor": {
+    "name": "slalom_corridor",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/slalom_corridor.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/slalom_corridor.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/slalom_corridor_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/slalom_corridor/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/slalom_corridor.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/slalom_corridor.world",
+    "n_points": 229,
+    "length_m": 22.794943432731788,
+    "min_clearance_m": 0.7500295187940397,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": 10.000000000000284,
+      "y": -2.2262662164494458e-13,
+      "yaw": 2.4761991857090875
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "fork_choice": {
+    "name": "fork_choice",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/fork_choice.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/fork_choice.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/fork_choice_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/fork_choice/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/fork_choice.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/fork_choice.world",
+    "n_points": 178,
+    "length_m": 17.61325472809267,
+    "min_clearance_m": 0.35964187129921804,
+    "vx_mps": 0.8,
+    "closed": false,
+    "spawn": {
+      "x": 2.0,
+      "y": 6.500000000000007,
+      "yaw": -1.5707963267948966
+    },
+    "routes_available": [
+      "right",
+      "left"
+    ]
+  },
+  "roundabout_small": {
+    "name": "roundabout_small",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/roundabout_small.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/roundabout_small.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/roundabout_small_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/roundabout_small/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/roundabout_small.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/roundabout_small.world",
+    "n_points": 315,
+    "length_m": 31.415300011370995,
+    "min_clearance_m": 1.4195516496042557,
+    "vx_mps": 1.0,
+    "closed": true,
+    "spawn": {
+      "x": 5.0,
+      "y": 0.0,
+      "yaw": 1.5791233453623126
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "maze_corridor_easy": {
+    "name": "maze_corridor_easy",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/maze_corridor_easy.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/maze_corridor_easy.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/maze_corridor_easy_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/maze_corridor_easy/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/maze_corridor_easy.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/maze_corridor_easy.world",
+    "n_points": 501,
+    "length_m": 50.000000000000206,
+    "min_clearance_m": 0.65,
+    "vx_mps": 0.6,
+    "closed": false,
+    "spawn": {
+      "x": 11.0,
+      "y": -8.0,
+      "yaw": 1.5707963267948966
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "construction_zone": {
+    "name": "construction_zone",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/construction_zone.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/construction_zone.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/construction_zone_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/construction_zone/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/construction_zone.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/construction_zone.world",
+    "n_points": 234,
+    "length_m": 23.26212086063303,
+    "min_clearance_m": 0.9502228257360541,
+    "vx_mps": 0.6,
+    "closed": false,
+    "spawn": {
+      "x": -11.0,
+      "y": 0.7794228634059945,
+      "yaw": -0.24124495297585338
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "campus_loop": {
+    "name": "campus_loop",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/campus_loop.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/campus_loop.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/campus_loop_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/campus_loop/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/campus_loop.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/campus_loop.world",
+    "n_points": 563,
+    "length_m": 56.27317677431773,
+    "min_clearance_m": 1.418065040559064,
+    "vx_mps": 1.2,
+    "closed": true,
+    "spawn": {
+      "x": -7.074037216376794,
+      "y": 4.499368219176946,
+      "yaw": -3.1214573444972435
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_00": {
+    "name": "rand_turn_00",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_00.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_00.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_00_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_00/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_00.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_00.world",
+    "n_points": 293,
+    "length_m": 29.199010353970163,
+    "min_clearance_m": 0.6349282447602168,
+    "vx_mps": 0.9886560874078649,
+    "closed": false,
+    "spawn": {
+      "x": -11.607119818700625,
+      "y": -4.630537057237214,
+      "yaw": -1.8458571968018684
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_01": {
+    "name": "rand_turn_01",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_01.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_01.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_01_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_01/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_01.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_01.world",
+    "n_points": 472,
+    "length_m": 47.0985681795039,
+    "min_clearance_m": 0.6312351150355601,
+    "vx_mps": 0.9980171633583651,
+    "closed": false,
+    "spawn": {
+      "x": 12.108128288189354,
+      "y": -0.5347298208116957,
+      "yaw": -2.532715246626311
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_02": {
+    "name": "rand_turn_02",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_02.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_02.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_02_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_02/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_02.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_02.world",
+    "n_points": 421,
+    "length_m": 41.99822291898399,
+    "min_clearance_m": 0.6290882585986945,
+    "vx_mps": 1.0620099953678164,
+    "closed": false,
+    "spawn": {
+      "x": -7.842213028630114,
+      "y": -2.3584911821210515,
+      "yaw": -0.46991543423949467
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_03": {
+    "name": "rand_turn_03",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_03.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_03.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_03_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_03/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_03.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_03.world",
+    "n_points": 284,
+    "length_m": 28.298832210407994,
+    "min_clearance_m": 0.6432910414382301,
+    "vx_mps": 0.942799187203888,
+    "closed": false,
+    "spawn": {
+      "x": -5.656560935136131,
+      "y": 4.9217323539352975,
+      "yaw": -0.13289675211763827
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_04": {
+    "name": "rand_turn_04",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_04.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_04.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_04_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_04/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_04.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_04.world",
+    "n_points": 351,
+    "length_m": 34.999010177903855,
+    "min_clearance_m": 0.6304441048382438,
+    "vx_mps": 0.9777036593309946,
+    "closed": false,
+    "spawn": {
+      "x": 1.0473030048095726,
+      "y": -2.53707957840417,
+      "yaw": 0.5671178743687632
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_00": {
+    "name": "rand_lobed_00",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_00.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_00.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_00_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_00/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_00.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_00.world",
+    "n_points": 348,
+    "length_m": 34.788256363013474,
+    "min_clearance_m": 1.3807500396247,
+    "vx_mps": 1.0636823191858613,
+    "closed": true,
+    "spawn": {
+      "x": 6.05445166436301,
+      "y": 0.0,
+      "yaw": 1.5720355186177735
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_01": {
+    "name": "rand_lobed_01",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_01.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_01.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_01_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_01/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_01.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_01.world",
+    "n_points": 386,
+    "length_m": 38.59171785400521,
+    "min_clearance_m": 1.2370410298210457,
+    "vx_mps": 1.2631441525350213,
+    "closed": true,
+    "spawn": {
+      "x": 7.330541041641781,
+      "y": 0.0,
+      "yaw": 1.5722850530804673
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_02": {
+    "name": "rand_lobed_02",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_02.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_02.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_02_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_02/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_02.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_02.world",
+    "n_points": 439,
+    "length_m": 43.842295794077565,
+    "min_clearance_m": 1.114706306409719,
+    "vx_mps": 1.060232223853414,
+    "closed": true,
+    "spawn": {
+      "x": 7.1199423032315945,
+      "y": 0.0,
+      "yaw": 1.5941673331275976
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_rrect_00": {
+    "name": "rand_rrect_00",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_00.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_00.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_00_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_rrect_00/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_rrect_00.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_rrect_00.world",
+    "n_points": 681,
+    "length_m": 68.02690853254707,
+    "min_clearance_m": 1.3435693704280496,
+    "vx_mps": 1.1892463144857002,
+    "closed": true,
+    "spawn": {
+      "x": 8.909763190901515,
+      "y": 6.081697136071533,
+      "yaw": 1.5819459862388328
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_serp_00": {
+    "name": "rand_serp_00",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_00.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_00.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_00_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_serp_00/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_serp_00.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_serp_00.world",
+    "n_points": 1030,
+    "length_m": 102.85883042653097,
+    "min_clearance_m": 0.6438023204833285,
+    "vx_mps": 0.993778154418598,
+    "closed": false,
+    "spawn": {
+      "x": -10.106656324740651,
+      "y": -6.924296982600977,
+      "yaw": 0.0
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_05": {
+    "name": "rand_turn_05",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_05.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_05.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_05_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_05/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_05.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_05.world",
+    "n_points": 294,
+    "length_m": 29.298724551471206,
+    "min_clearance_m": 0.6321949582184316,
+    "vx_mps": 0.9838756733707039,
+    "closed": false,
+    "spawn": {
+      "x": -8.484194563563438,
+      "y": 0.7569820652785797,
+      "yaw": -0.08479035789887784
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_06": {
+    "name": "rand_turn_06",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_06.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_06.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_06_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_06/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_06.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_06.world",
+    "n_points": 297,
+    "length_m": 29.59931323687753,
+    "min_clearance_m": 0.635474578504196,
+    "vx_mps": 1.0285123426029057,
+    "closed": false,
+    "spawn": {
+      "x": -6.807744501247882,
+      "y": -5.802726329189094,
+      "yaw": 0.43277519135292575
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_07": {
+    "name": "rand_turn_07",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_07.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_07.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_07_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_07/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_07.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_07.world",
+    "n_points": 336,
+    "length_m": 33.49826770808906,
+    "min_clearance_m": 0.6419196918986105,
+    "vx_mps": 0.921883857003376,
+    "closed": false,
+    "spawn": {
+      "x": -4.983304952555252,
+      "y": -0.14847452172527653,
+      "yaw": 0.45567586898330403
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_08": {
+    "name": "rand_turn_08",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_08.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_08.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_08_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_08/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_08.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_08.world",
+    "n_points": 373,
+    "length_m": 37.1989852729448,
+    "min_clearance_m": 0.6341205497388414,
+    "vx_mps": 0.9778022177493616,
+    "closed": false,
+    "spawn": {
+      "x": 1.8701629828765847,
+      "y": -10.855326028338238,
+      "yaw": 1.2505079974777633
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_03": {
+    "name": "rand_lobed_03",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_03.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_03.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_03_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_03/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_03.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_03.world",
+    "n_points": 407,
+    "length_m": 40.68367897167293,
+    "min_clearance_m": 1.4237545090761572,
+    "vx_mps": 1.0803342442372716,
+    "closed": true,
+    "spawn": {
+      "x": 8.652734841225888,
+      "y": 0.0,
+      "yaw": 1.5752029552062765
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_04": {
+    "name": "rand_lobed_04",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_04.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_04.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_04_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_04/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_04.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_04.world",
+    "n_points": 286,
+    "length_m": 28.506414740422983,
+    "min_clearance_m": 1.3106888723783332,
+    "vx_mps": 1.0784921593923233,
+    "closed": true,
+    "spawn": {
+      "x": 5.9488900899868264,
+      "y": 0.0,
+      "yaw": 1.608971485400525
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_05": {
+    "name": "rand_lobed_05",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_05.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_05.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_05_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_05/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_05.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_05.world",
+    "n_points": 432,
+    "length_m": 43.108257201041326,
+    "min_clearance_m": 1.042689379083794,
+    "vx_mps": 1.0655027969257371,
+    "closed": true,
+    "spawn": {
+      "x": 8.147490966650071,
+      "y": 0.0,
+      "yaw": 1.620261895798698
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_rrect_01": {
+    "name": "rand_rrect_01",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_01.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_01.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_01_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_rrect_01/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_rrect_01.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_rrect_01.world",
+    "n_points": 787,
+    "length_m": 78.6354673540379,
+    "min_clearance_m": 1.4812869987915702,
+    "vx_mps": 1.0723915340358547,
+    "closed": true,
+    "spawn": {
+      "x": 11.61957408859013,
+      "y": 5.583433533774067,
+      "yaw": 1.5793783768284269
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_serp_01": {
+    "name": "rand_serp_01",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_01.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_01.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_01_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_serp_01/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_serp_01.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_serp_01.world",
+    "n_points": 644,
+    "length_m": 64.29711930004582,
+    "min_clearance_m": 0.6285702244534432,
+    "vx_mps": 0.8288886003448637,
+    "closed": false,
+    "spawn": {
+      "x": 8.171429836180776,
+      "y": -4.849723909927617,
+      "yaw": 3.141592653589793
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_09": {
+    "name": "rand_turn_09",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_09.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_09.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_09_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_09/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_09.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_09.world",
+    "n_points": 409,
+    "length_m": 40.799336140559284,
+    "min_clearance_m": 0.6585256795572847,
+    "vx_mps": 0.760746929066274,
+    "closed": false,
+    "spawn": {
+      "x": -7.337912286229168,
+      "y": -3.7917437009726465,
+      "yaw": 0.04657364918919738
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_10": {
+    "name": "rand_turn_10",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_10.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_10.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_10_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_10/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_10.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_10.world",
+    "n_points": 404,
+    "length_m": 40.29868541709507,
+    "min_clearance_m": 0.6273407758269407,
+    "vx_mps": 0.7497232377534684,
+    "closed": false,
+    "spawn": {
+      "x": -0.17195627906292144,
+      "y": -2.651428665988878,
+      "yaw": 2.336256359605898
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_11": {
+    "name": "rand_turn_11",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_11.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_11.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_11_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_11/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_11.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_11.world",
+    "n_points": 509,
+    "length_m": 50.79922150263555,
+    "min_clearance_m": 0.6254774501302629,
+    "vx_mps": 0.8683176410245403,
+    "closed": false,
+    "spawn": {
+      "x": -8.027179399226911,
+      "y": -3.9396128853526893,
+      "yaw": -1.059238586161262
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_06": {
+    "name": "rand_lobed_06",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_06.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_06.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_06_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_06/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_06.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_06.world",
+    "n_points": 469,
+    "length_m": 46.824560941599074,
+    "min_clearance_m": 1.496515255656794,
+    "vx_mps": 1.2156395471469215,
+    "closed": true,
+    "spawn": {
+      "x": 8.040130047170086,
+      "y": 0.0,
+      "yaw": 1.590297912063865
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_07": {
+    "name": "rand_lobed_07",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_07.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_07.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_07_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_07/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_07.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_07.world",
+    "n_points": 399,
+    "length_m": 39.82000628479807,
+    "min_clearance_m": 1.435069239730238,
+    "vx_mps": 1.1351499180418245,
+    "closed": true,
+    "spawn": {
+      "x": 7.303333688990379,
+      "y": 0.0,
+      "yaw": 1.579889936600886
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_08": {
+    "name": "rand_lobed_08",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_08.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_08.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_08_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_08/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_08.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_08.world",
+    "n_points": 374,
+    "length_m": 37.39153294096011,
+    "min_clearance_m": 1.2526148732568898,
+    "vx_mps": 1.249585866957928,
+    "closed": true,
+    "spawn": {
+      "x": 6.888147668291503,
+      "y": 0.0,
+      "yaw": 1.5726552221394616
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_rrect_02": {
+    "name": "rand_rrect_02",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_02.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_02.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_rrect_02_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_rrect_02/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_rrect_02.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_rrect_02.world",
+    "n_points": 607,
+    "length_m": 60.66515082730343,
+    "min_clearance_m": 1.2164343439272418,
+    "vx_mps": 1.1814643417852835,
+    "closed": true,
+    "spawn": {
+      "x": 9.749988256931244,
+      "y": 3.908684839464534,
+      "yaw": 1.582226699388594
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_serp_02": {
+    "name": "rand_serp_02",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_02.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_02.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_serp_02_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_serp_02/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_serp_02.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_serp_02.world",
+    "n_points": 1194,
+    "length_m": 119.23482078625068,
+    "min_clearance_m": 0.6341838329657045,
+    "vx_mps": 1.0828404997129584,
+    "closed": false,
+    "spawn": {
+      "x": 9.03413235034212,
+      "y": -9.108080609195984,
+      "yaw": 3.141592653589793
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_12": {
+    "name": "rand_turn_12",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_12.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_12.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_12_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_12/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_12.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_12.world",
+    "n_points": 466,
+    "length_m": 46.498593897655645,
+    "min_clearance_m": 0.6355507201254107,
+    "vx_mps": 0.7309970915006624,
+    "closed": false,
+    "spawn": {
+      "x": -1.960437984658792,
+      "y": -4.994717689768004,
+      "yaw": 0.6015016955824064
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_turn_13": {
+    "name": "rand_turn_13",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_13.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_13.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_turn_13_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_turn_13/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_turn_13.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_turn_13.world",
+    "n_points": 348,
+    "length_m": 34.6988505958448,
+    "min_clearance_m": 0.6281280876390052,
+    "vx_mps": 0.9347627202435284,
+    "closed": false,
+    "spawn": {
+      "x": -8.971900042562597,
+      "y": -3.744055426998807,
+      "yaw": -0.003072172206558328
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "rand_lobed_09": {
+    "name": "rand_lobed_09",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_09.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_09.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/rand_lobed_09_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/rand_lobed_09/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/rand_lobed_09.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/rand_lobed_09.world",
+    "n_points": 504,
+    "length_m": 50.34750746201767,
+    "min_clearance_m": 1.3382470715650094,
+    "vx_mps": 1.292094220945759,
+    "closed": true,
+    "spawn": {
+      "x": 8.979782921503146,
+      "y": 0.0,
+      "yaw": 1.5791071868914779
+    },
+    "routes_available": [
+      "default"
+    ]
+  },
+  "superspeedway": {
+    "name": "superspeedway",
+    "png": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/superspeedway.png",
+    "yaml": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/superspeedway.yaml",
+    "preview": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/maps/superspeedway_preview.png",
+    "model": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/models/superspeedway/model.sdf",
+    "csv": "/home/jayesh/sim_gazebo/src/csv_data/superspeedway.csv",
+    "world": "/home/jayesh/sim_gazebo/src/f1tenth_gym_gazebo/worlds/superspeedway.world",
+    "n_points": 655,
+    "length_m": 65.41535168289457,
+    "min_clearance_m": 1.4191981642917264,
+    "vx_mps": 1.5,
+    "closed": true,
+    "spawn": {
+      "x": 12.0,
+      "y": 1.5,
+      "yaw": 1.5795323024356773
+    },
+    "routes_available": [
+      "default"
+    ]
+  }
+}

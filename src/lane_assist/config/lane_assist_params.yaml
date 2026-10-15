@@ -1,0 +1,202 @@
+road_collect:
+  ros__parameters:
+    use_sim_time: true
+    # map_name / run_tag are set per run by tools/data/collect_all.py.
+    # Truth (lanes, obstacles, side lanes, lane plan) from tools/maps/make_road_maps.py.
+    map_name: ''
+    run_tag: ''
+    truth_dir: '~/sim_gazebo/src/lane_assist/tools/maps/truth'
+    out_dir: '~/sim_gazebo/src/lane_assist/dataset/raw'
+    # Frames per map, recorded while driving at record_hz (sim time).
+    n_samples: 1000
+    record_hz: 5.0
+    # Episodes: obstacle_start_frac of them start obstacle_start_min..max m
+    # behind an obstacle that blocks the lane and can be passed (avoidance
+    # episode, ends obstacle_end_m past it); the rest start anywhere (lane
+    # keeping, up to episode_s). The car drives eval_tools.Truth.plan_label():
+    # lane centre, or a smooth 5.5 m lane change finished 1.5 m before the
+    # obstacle, into a free lane of the same direction -- never a bike / bus /
+    # parking lane, never across the centre line.
+    obstacle_start_frac: 0.4
+    obstacle_start_min: 7.0
+    obstacle_start_max: 11.0
+    obstacle_end_m: 4.0
+    # late_frac of those avoidance episodes are LATE: the car holds its lane
+    # until late_trigger_min..max m before the obstacle, then makes the late
+    # lane change (eval_tools.Truth.late_label) -- the frames a hesitating
+    # model drives itself into, with the right answer for them.
+    late_frac: 0.5
+    late_trigger_min: 2.2
+    late_trigger_max: 4.5
+    # stop_frac of episodes start behind a FULL road block (every lane of that
+    # direction blocked): brake at brake_decel to stop stop_margin short of it
+    # (eval_tools.free_distance), hold stop_hold_s, end. Any episode reaching
+    # such a block does the same.
+    stop_frac: 0.15
+    stop_hold_s: 1.0
+    brake_decel: 1.0
+    stop_margin: 0.4
+    # wrong_frac of lane-keeping episodes start across the centre line in the
+    # oncoming lane (still facing our way); the expert steers back within wrong_s.
+    wrong_frac: 0.1
+    wrong_s: 4.0
+    wrong_end_s: 6.0
+    # share of avoidance episodes that pick an obstacle whose only legal pass is on
+    # the RIGHT (inner lane next to the centre line; passing it left = oncoming lane)
+    right_pass_frac: 0.3
+    episode_s: 60.0
+    warmup_s: 0.5
+    # Drifting further than this from the plan (fraction of lane width) ends the episode.
+    abort_frac: 0.5
+    # Speed is drawn once per episode, uniform [m/s], reached at accel [m/s^2].
+    speed_min: 0.8
+    speed_max: 2.0
+    accel: 1.0
+    # Start pose: lateral offset (fraction of lane width) and heading error [rad].
+    lat_max_frac: 0.35
+    yaw_max: 0.30
+    # Slow weave (two sines, periods weave_period_min..max s, total amplitude
+    # up to weave_max_frac of the lane width): the car drifts and recovers, the
+    # label (the plan) does not. Faded out during lane changes and within
+    # obstacle_calm_m of any obstacle, so the car never drifts into a cone.
+    weave_max_frac: 0.30
+    weave_period_min: 6.0
+    weave_period_max: 14.0
+    obstacle_calm_m: 4.5
+    # Frames further than this from the plan (fraction of lane width) are not saved.
+    record_max_frac: 0.45
+    # Pure pursuit on the plan (never on the camera). Lookahead
+    # clip(min + gain*v, min, max); steer_rate [rad/s] keeps it smooth.
+    lookahead_min: 0.8
+    lookahead_gain: 0.5
+    lookahead_max: 1.6
+    wheelbase: 0.3302
+    max_steer: 0.4189
+    steer_rate: 1.0
+    # Never place the car within this distance of an obstacle [m].
+    object_clearance: 0.6
+    # Sim time after odom confirms the teleport before driving starts.
+    settle_s: 0.25
+    seed: 0
+    camera_topic: '/camera/color/image_raw'
+    camera_info_topic: '/camera/color/camera_info'
+    odom_topic: '/ego_racecar/odom'
+    drive_topic: '/drive'
+
+vit_lane_node:
+  ros__parameters:
+    use_sim_time: true
+    # Trained by tools/train/train_vit.py.
+    vit_checkpoint: '~/sim_gazebo/src/lane_assist/models/vit_lane_253maps_all.pt'
+    device: 'cuda'
+    camera_topic: '/camera/color/image_raw'
+    camera_info_topic: '/camera/color/camera_info'
+    odom_topic: '/ego_racecar/odom'
+    ref_path_topic: '/planning/ref_path'
+    ref_viz_topic: '/planning/ref_path_viz'
+    debug_image_topic: '/vit_lane/debug_image'
+    publish_debug_image: true
+    # Must match the sim mount AND the crop used in training (horizon row
+    # from cam_pitch). make_dataset.py and train_vit.py read the mount from here too.
+    cam_height: 0.40
+    cam_pitch: 0.0463
+    cam_x: 0.275
+    # Dynamic speed on the predicted path: min(target_speed, sqrt(a_lat_max/|kappa|)) per
+    # point, braked back from slow points ahead at brake_decel, and the stop head below.
+    # target_speed = cruise on a clear straight road (staged: 2.5, then 3.0 m/s).
+    target_speed: 2.5
+    a_lat_max: 3.0
+    # Smoothing of the 16 predicted points across frames: new = a*pred + (1-a)*old.
+    ema_alpha: 0.6
+    publish_rate_hz: 20.0
+    # No fresh camera frame for this long -> stop publishing; the follower stops the car.
+    frame_timeout_s: 0.5
+    # Run log: vit.csv (pose, twist, timing, raw + smoothed prediction per tick)
+    # and frames/ (camera + predicted path, log_frames_hz). vit_follow_launch.py
+    # sets log_dir to a fresh log/vit_run_<stamp>/ for every run.
+    enable_csv_log: true
+    log_dir: ''
+    log_frames_hz: 2.0
+    # Stop head (checkpoints with 17 outputs): path speed <= sqrt(2 * brake_decel *
+    # (free - stop_margin)) with free = predicted free distance ahead [m].
+    brake_decel: 1.0
+    stop_margin: 0.4
+
+lidar_guard:
+  ros__parameters:
+    use_sim_time: true
+    # Emergency brake independent of the camera: 3D lidar points inside the
+    # current reference path's corridor -> free distance on free_topic; the
+    # follower caps its speed at sqrt(2 * brake_decel * (free - stop_margin)).
+    cloud_topic: '/lidar/points'
+    ref_path_topic: '/planning/ref_path'
+    free_topic: '/lane_assist/lidar_free'
+    # lidar_3d_link in base_link (urdf: x = wheelbase/2, z = 0.04 + 0.1 + 0.06), no rotation
+    lidar_x: 0.165
+    lidar_z: 0.20
+    # corridor: car half width 0.14 + margin; obstacle = points this high above the road
+    half_width: 0.20
+    z_min: 0.04
+    z_max: 0.60
+    x_front: 0.39
+    max_range: 8.0
+    min_hits: 3
+    # plus a short corridor straight ahead along the heading (~ stopping distance +
+    # margin at 1.5 m/s): catches a path that swerves away at the last moment.
+    straight_range: 1.8
+    # a hit there = HARD stop, held latch_s after the last hit; the corridor is the car's
+    # half width + 6 cm (0.17 caught only 78% of block go-arounds in replay vs 92%)
+    straight_half_width: 0.20
+    latch_s: 1.0
+
+# LPV-MPC as the path follower (vit_follow_launch.py controller:=lpv_mpc). Loaded AFTER
+# lpv_mpc_gazebo/config/lpv_mpc_params.yaml, so only the lane-assist differences are here.
+lpv_mpc_node:
+  ros__parameters:
+    # path = the ViT's ego-frame /planning/ref_path (no CSV, no window_republisher)
+    ref_source: 'topic'
+    ref_generator: 'external'
+    ref_path_topic: '/planning/ref_path'
+    # planner silent this long -> stop (camera lost, node died)
+    topic_ref_timeout: 0.5
+    # the path's first L m -> its tangent at L (the ViT is least reliable at the car:
+    # 0.4-0.6 m wrong beside roadside decoy rows, 2026-10-13). Harness, R = 8 m curve:
+    # error cases -10..30 % worst offset, clean curve max 0.032 -> 0.062 m. 0 = off.
+    topic_ref_lookahead_m: 0.6
+    # lidar_guard emergency brake, same cap as the pure-pursuit follower:
+    # speed <= sqrt(2 * topic_brake_decel * (free - topic_stop_margin)); silent guard = stop
+    topic_free_topic: '/lane_assist/lidar_free'
+    topic_brake_decel: 1.0
+    topic_stop_margin: 0.4
+    topic_free_timeout: 0.5
+    # /scan (2D, 16.5 cm) passes over the sim obstacles but sees roadside barrels:
+    # lidar_guard does this job here
+    wall_avoidance_enabled: false
+    obstacle_avoidance_enabled: false
+    # heading -> position terms in the MPC model (support_files): without them the QP
+    # cannot correct a sideways offset (2026-10-12 sim run: drifted into the oncoming lane).
+    # Valid only for the ego-frame path (small heading); racing CSV mode keeps it false.
+    heading_position_coupling: true
+    # tyres = the sim plant's linear stiffness, B*C*mu*Fz per axle (racing uses 123/131);
+    # exact (expm) discretisation, because RK4 is unstable with these at the 1.5 m/s clamp
+    Cf: 308.0
+    Cr: 285.0
+    discretization: 'expm'
+    # steering-rate weight: racing's 55 let every solve plan rate-limited zig-zags
+    # (2.5 deg steer change per 20 ms); 1e5 = smooth steering, same tracking
+    R_diag: [100000.0, 8.0]
+    # 40 x 20 ms = 0.8 s horizon (2 m at 2.5 m/s, path is 5 m): 12 ms per tick instead of
+    # 16-19 ms with 60, same tracking in the harness
+    hz: 40
+    # speed = the ViT planner's profile (cruise, curves, stop, lidar cap); the MPC steers.
+    # blend 0 integrated the MPC accel and stalled from standstill.
+    speed_ff_blend: 1.0
+    adaptive_speed_ff_enabled: false
+    # below this speed: no MPC, drive off at topic_startup_speed with the last steering
+    # (from standstill the MPC could keep commanding 0 m/s)
+    topic_low_speed_mpc_thresh: 0.5
+    topic_startup_speed: 0.8
+    # cross-track PI on the heading reference (racing line); the coupling above does
+    # this job in lane mode
+    crosstrack_kp: 0.0
+    crosstrack_ki: 0.0

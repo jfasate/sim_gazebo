@@ -1,0 +1,1938 @@
+#!/usr/bin/env python3
+"""
+LPV-MPC (Linear Parameter Varying Model Predictive Control) node for F1Tenth.
+
+Subscribes to odometry, runs a dynamic bicycle-model MPC (adapted from
+autonomous360), and publishes AckermannDriveStamped commands to follow
+waypoints loaded from a CSV file.
+"""
+
+import csv
+import math
+import os
+import time
+
+# Cap BLAS/OpenMP threads BEFORE numpy is imported. The MPC's matrices are
+# small (~60x60), so multi-threaded OpenBLAS gives no speedup but spin-waits
+# across every core (~1200% CPU observed), starving the sim's plant loop and
+# making the car stutter in Gazebo. Must be set before numpy loads its BLAS.
+for _v in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS',
+           'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
+    os.environ.setdefault(_v, '1')
+
+import numpy as np
+from qpsolvers import solve_qp
+
+# OSQP + scipy.sparse are used for the persistent, warm-started solver path.
+# Fall back to qpsolvers.solve_qp if either is unavailable.
+try:
+    import osqp
+    from scipy import sparse
+    _OSQP_AVAILABLE = True
+except ImportError:
+    _OSQP_AVAILABLE = False
+
+import rclpy
+from rclpy._rclpy_pybind11 import RCLError
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Float64, Float64MultiArray
+from ackermann_msgs.msg import AckermannDriveStamped
+from geometry_msgs.msg import Point, PoseWithCovarianceStamped
+from visualization_msgs.msg import Marker
+
+from lpv_mpc_gazebo.support_files import SupportFilesF1Tenth
+from lpv_mpc_gazebo.utils import (
+    nearest_point, nearest_point_windowed, precompute_segments)
+
+
+class LPVMPCNode(Node):
+
+    def __init__(self):
+        super().__init__('lpv_mpc_node')
+
+        # ── ROS parameters ────────────���─────────────────────────────
+        self.declare_parameter('reference_csv', 'test_worldv5')
+        self.declare_parameter('ref_source', 'csv')
+        self.declare_parameter('ref_path_topic', '/planning/ref_path')
+        self.declare_parameter('topic_stop_speed_thresh', 0.05)
+        self.declare_parameter('topic_min_ref_speed', 0.0)
+        self.declare_parameter('topic_low_speed_mpc_thresh', 0.0)
+        self.declare_parameter('topic_startup_speed', 0.4)
+        self.declare_parameter('topic_reference_speed_floor', 0.10)
+        self.declare_parameter('topic_ref_timeout', 0.5)
+        self.declare_parameter('topic_ref_lookahead_m', 0.0)
+        self.declare_parameter('topic_free_topic', '')
+        self.declare_parameter('topic_brake_decel', 1.0)
+        self.declare_parameter('topic_stop_margin', 0.4)
+        self.declare_parameter('topic_free_timeout', 0.5)
+        self.declare_parameter('initialpose_topic', '/initialpose')
+        self.declare_parameter('speed_scale', 1.0)
+        self.declare_parameter('speed_ff_blend', 0.7)
+        self.declare_parameter('adaptive_speed_ff_enabled', True)
+        self.declare_parameter('adaptive_speed_ff_blend_max', 0.40)
+        self.declare_parameter('adaptive_speed_ff_risk_start', 0.60)
+        self.declare_parameter('adaptive_speed_ff_slip_deg', 5.0)
+        self.declare_parameter('adaptive_speed_ff_clearance_soft', 1.30)
+        self.declare_parameter('adaptive_speed_ff_clearance_hard', 0.90)
+        self.declare_parameter('cmd_accel_horizon', 0.15)
+        self.declare_parameter('speed_lookahead_time', 1.2)
+        self.declare_parameter('speed_lookahead_decel', 4.0)
+        self.declare_parameter('brake_kp', 3.0)          # m/s^2 per m/s over-speed
+        self.declare_parameter('brake_kff', 1.0)         # gain on MPC requested decel
+        self.declare_parameter('brake_deadband', 0.15)   # m/s over-speed ignore band
+        self.declare_parameter('brake_slew_rate', 40.0)  # m/s^3 max decel ramp rate
+        self.declare_parameter('brake_decel_max', 8.0)   # m/s^2 brake decel cap
+        self.declare_parameter('curvature_speed_mode', 'cap')      # off | cap | replace
+        self.declare_parameter('curvature_lateral_accel', 9.0)     # m/s^2 grip budget
+        self.declare_parameter('curvature_speed_scale', 1.0)
+        self.declare_parameter('curvature_straight_speed', 0.0)    # <=0 -> no straight cap
+        self.declare_parameter('curvature_min_speed', 0.0)         # <=0 -> use min_ref_speed
+        self.declare_parameter('curvature_epsilon', 1.0e-4)        # min |kappa| (avoid /0)
+        self.declare_parameter('curvature_kappa_source', 'csv')    # csv | geometry
+        self.declare_parameter('curvature_accel_delta', 2.0)       # m/s per m fwd smoothing
+        self.declare_parameter('curvature_decel_delta', 4.0)       # m/s per m bwd smoothing
+        self.declare_parameter('curvature_smoothing_passes', 2)
+        self.declare_parameter('recovery_lat_err', 0.8)
+        self.declare_parameter('recovery_heading_err_deg', 30.0)
+        self.declare_parameter('recovery_slip_err_deg', 8.0)
+        self.declare_parameter('recovery_hard_lat_err', 2.0)
+        self.declare_parameter('recovery_hard_heading_err_deg', 60.0)
+        self.declare_parameter('recovery_hard_slip_err_deg', 15.0)
+        self.declare_parameter('recovery_soft_speed_cap', 4.8)
+        self.declare_parameter('recovery_speed_cap', 3.4)
+        self.declare_parameter('recovery_soft_accel_cap', 1.0)
+        self.declare_parameter('recovery_accel_cap', 0.0)
+        self.declare_parameter('predictive_recovery_lat_growth', 0.85)
+        self.declare_parameter('predictive_recovery_lat_end', 1.00)
+        self.declare_parameter('predictive_recovery_heading_err_deg', 45.0)
+        self.declare_parameter('predictive_recovery_hard_lat_growth', 2.50)
+        self.declare_parameter('predictive_recovery_hard_lat_end', 3.00)
+        self.declare_parameter('predictive_recovery_hard_heading_err_deg', 85.0)
+        self.declare_parameter('crosstrack_kp', 0.0)
+        self.declare_parameter('crosstrack_ki', 0.0)
+        self.declare_parameter('crosstrack_int_max', 1.0)
+        self.declare_parameter('crosstrack_max_deg', 8.0)
+        self.declare_parameter('enable_csv_log', True)
+        self.declare_parameter('log_dir',os.path.expanduser('~/sim_gazebo/src/lpv_mpc_gazebo/log'))
+        self.declare_parameter('odom_topic', '/ego_racecar/odom')
+        self.declare_parameter('scan_topic', '/scan')
+        self.declare_parameter('drive_topic', '/drive')
+        self.declare_parameter('scan_front_angle_deg', 0.0)
+        self.declare_parameter('scan_left_angle_deg', 90.0)
+        self.declare_parameter('scan_right_angle_deg', -90.0)
+        self.declare_parameter('scan_sector_width_deg', 10.0)
+        self.declare_parameter('wall_avoidance_enabled', True)
+        self.declare_parameter('wall_soft_clearance', 0.75)
+        self.declare_parameter('wall_hard_clearance', 0.40)
+        self.declare_parameter('wall_front_soft_clearance', 1.50)
+        self.declare_parameter('wall_front_hard_clearance', 0.60)
+        self.declare_parameter('wall_soft_speed_cap', 4.8)
+        self.declare_parameter('wall_hard_speed_cap', 2.0)
+        self.declare_parameter('wall_accel_cap', 0.0)
+        self.declare_parameter('wall_brake_gain', 1.0)
+        self.declare_parameter('wall_scan_max_age', 0.20)
+        self.declare_parameter('obstacle_avoidance_enabled', True)
+        self.declare_parameter('obstacle_path_aware_enabled', True)
+        self.declare_parameter('obstacle_forward_angle_deg', 55.0)
+        self.declare_parameter('obstacle_corridor_width', 0.75)
+        self.declare_parameter('obstacle_soft_distance', 3.00)
+        self.declare_parameter('obstacle_hard_distance', 0.90)
+        self.declare_parameter('obstacle_soft_speed_cap', 6.8)
+        self.declare_parameter('obstacle_hard_speed_cap', 1.5)
+        self.declare_parameter('obstacle_ttc_soft', 1.35)
+        self.declare_parameter('obstacle_ttc_hard', 0.75)
+        self.declare_parameter('obstacle_brake_gain', 0.6)
+        self.declare_parameter('config_file', '')
+        self.declare_parameter('Ts', 0.02)
+        self.declare_parameter('hz', 60)
+        self.declare_parameter('m', 3.47)
+        self.declare_parameter('Iz', 0.04712)
+        self.declare_parameter('Cf', 90.0)
+        self.declare_parameter('Cr', 110.0)
+        self.declare_parameter('lf', 0.15875)
+        self.declare_parameter('lr', 0.17145)
+        self.declare_parameter('mju', 0.015)
+        self.declare_parameter('steer_rate_limit', 3.2)
+        self.declare_parameter('d_a_max', 0.5)
+        self.declare_parameter('heading_position_coupling', False)
+        self.declare_parameter('discretization', 'rk4')
+        self.declare_parameter('Q_diag', [10.0, 500.0, 100.0, 100.0])
+        self.declare_parameter('S_diag', [10.0, 500.0, 100.0, 100.0])
+        self.declare_parameter('R_diag', [50.0, 5.0])
+        self.declare_parameter('qp_solver', 'cvxopt')
+        self.declare_parameter('soft_constraints', True)
+        self.declare_parameter('slack_penalty_lin', 1.0e4)   # L1 weight on slack
+        self.declare_parameter('slack_penalty_quad', 1.0e2)  # L2 weight on slack
+
+        reference_csv = self.get_parameter('reference_csv').value
+        self.ref_source = str(self.get_parameter('ref_source').value).strip().lower()
+        self.ref_path_topic = str(self.get_parameter('ref_path_topic').value)
+        self.topic_stop_speed_thresh = float(
+            self.get_parameter('topic_stop_speed_thresh').value)
+        self.topic_min_ref_speed = float(
+            self.get_parameter('topic_min_ref_speed').value)
+        self.topic_low_speed_mpc_thresh = float(
+            self.get_parameter('topic_low_speed_mpc_thresh').value)
+        self.topic_startup_speed = float(
+            self.get_parameter('topic_startup_speed').value)
+        self.topic_reference_speed_floor = float(
+            self.get_parameter('topic_reference_speed_floor').value)
+        self.topic_ref_timeout = float(self.get_parameter('topic_ref_timeout').value)
+        self.topic_ref_lookahead_m = float(self.get_parameter('topic_ref_lookahead_m').value)
+        self.topic_free_topic = str(self.get_parameter('topic_free_topic').value)
+        self.topic_brake_decel = float(self.get_parameter('topic_brake_decel').value)
+        self.topic_stop_margin = float(self.get_parameter('topic_stop_margin').value)
+        self.topic_free_timeout = float(self.get_parameter('topic_free_timeout').value)
+        self.initialpose_topic = str(self.get_parameter('initialpose_topic').value)
+        self.speed_scale = self.get_parameter('speed_scale').value
+        self.speed_ff_blend = self.get_parameter('speed_ff_blend').value
+        self.adaptive_speed_ff_enabled = self.get_parameter(
+            'adaptive_speed_ff_enabled').value
+        self.adaptive_speed_ff_blend_max = self.get_parameter(
+            'adaptive_speed_ff_blend_max').value
+        self.adaptive_speed_ff_risk_start = self.get_parameter(
+            'adaptive_speed_ff_risk_start').value
+        self.adaptive_speed_ff_slip = math.radians(
+            self.get_parameter('adaptive_speed_ff_slip_deg').value)
+        self.adaptive_speed_ff_clearance_soft = self.get_parameter(
+            'adaptive_speed_ff_clearance_soft').value
+        self.adaptive_speed_ff_clearance_hard = self.get_parameter(
+            'adaptive_speed_ff_clearance_hard').value
+        self.cmd_accel_horizon = self.get_parameter('cmd_accel_horizon').value
+        self.speed_lookahead_time = self.get_parameter('speed_lookahead_time').value
+        self.speed_lookahead_decel = self.get_parameter('speed_lookahead_decel').value
+        self.brake_kp = self.get_parameter('brake_kp').value
+        self.brake_kff = self.get_parameter('brake_kff').value
+        self.brake_deadband = self.get_parameter('brake_deadband').value
+        self.brake_slew_rate = self.get_parameter('brake_slew_rate').value
+        self.brake_decel_max = self.get_parameter('brake_decel_max').value
+        self.curvature_speed_mode = str(
+            self.get_parameter('curvature_speed_mode').value).strip().lower()
+        self.curvature_lateral_accel = self.get_parameter('curvature_lateral_accel').value
+        self.curvature_speed_scale = self.get_parameter('curvature_speed_scale').value
+        self.curvature_straight_speed = self.get_parameter('curvature_straight_speed').value
+        self.curvature_min_speed = self.get_parameter('curvature_min_speed').value
+        self.curvature_epsilon = self.get_parameter('curvature_epsilon').value
+        self.curvature_kappa_source = str(
+            self.get_parameter('curvature_kappa_source').value).strip().lower()
+        self.curvature_accel_delta = self.get_parameter('curvature_accel_delta').value
+        self.curvature_decel_delta = self.get_parameter('curvature_decel_delta').value
+        self.curvature_smoothing_passes = int(
+            self.get_parameter('curvature_smoothing_passes').value)
+        self.recovery_lat_err = self.get_parameter('recovery_lat_err').value
+        self.recovery_heading_err = math.radians(
+            self.get_parameter('recovery_heading_err_deg').value)
+        self.recovery_slip_err = math.radians(
+            self.get_parameter('recovery_slip_err_deg').value)
+        self.recovery_hard_lat_err = self.get_parameter('recovery_hard_lat_err').value
+        self.recovery_hard_heading_err = math.radians(
+            self.get_parameter('recovery_hard_heading_err_deg').value)
+        self.recovery_hard_slip_err = math.radians(
+            self.get_parameter('recovery_hard_slip_err_deg').value)
+        self.recovery_soft_speed_cap = self.get_parameter('recovery_soft_speed_cap').value
+        self.recovery_speed_cap = self.get_parameter('recovery_speed_cap').value
+        self.recovery_soft_accel_cap = self.get_parameter('recovery_soft_accel_cap').value
+        self.recovery_accel_cap = self.get_parameter('recovery_accel_cap').value
+        self.predictive_recovery_lat_growth = self.get_parameter(
+            'predictive_recovery_lat_growth').value
+        self.predictive_recovery_lat_end = self.get_parameter(
+            'predictive_recovery_lat_end').value
+        self.predictive_recovery_heading_err = math.radians(
+            self.get_parameter('predictive_recovery_heading_err_deg').value)
+        self.predictive_recovery_hard_lat_growth = self.get_parameter(
+            'predictive_recovery_hard_lat_growth').value
+        self.predictive_recovery_hard_lat_end = self.get_parameter(
+            'predictive_recovery_hard_lat_end').value
+        self.predictive_recovery_hard_heading_err = math.radians(
+            self.get_parameter('predictive_recovery_hard_heading_err_deg').value)
+        self.crosstrack_kp = self.get_parameter('crosstrack_kp').value
+        self.crosstrack_ki = self.get_parameter('crosstrack_ki').value
+        self.crosstrack_int_max = self.get_parameter('crosstrack_int_max').value
+        self.crosstrack_max = math.radians(
+            self.get_parameter('crosstrack_max_deg').value)
+        self.enable_csv_log = self.get_parameter('enable_csv_log').value
+        self.log_dir = self.get_parameter('log_dir').value
+        odom_topic = self.get_parameter('odom_topic').value
+        scan_topic = self.get_parameter('scan_topic').value
+        drive_topic = self.get_parameter('drive_topic').value
+        self.scan_front_angle = math.radians(
+            self.get_parameter('scan_front_angle_deg').value)
+        self.scan_left_angle = math.radians(
+            self.get_parameter('scan_left_angle_deg').value)
+        self.scan_right_angle = math.radians(
+            self.get_parameter('scan_right_angle_deg').value)
+        self.scan_sector_width = math.radians(
+            self.get_parameter('scan_sector_width_deg').value)
+        self.wall_avoidance_enabled = self.get_parameter('wall_avoidance_enabled').value
+        self.wall_soft_clearance = self.get_parameter('wall_soft_clearance').value
+        self.wall_hard_clearance = self.get_parameter('wall_hard_clearance').value
+        self.wall_front_soft_clearance = self.get_parameter(
+            'wall_front_soft_clearance').value
+        self.wall_front_hard_clearance = self.get_parameter(
+            'wall_front_hard_clearance').value
+        self.wall_soft_speed_cap = self.get_parameter('wall_soft_speed_cap').value
+        self.wall_hard_speed_cap = self.get_parameter('wall_hard_speed_cap').value
+        self.wall_accel_cap = self.get_parameter('wall_accel_cap').value
+        self.wall_brake_gain = self.get_parameter('wall_brake_gain').value
+        self.wall_scan_max_age = self.get_parameter('wall_scan_max_age').value
+        self.obstacle_avoidance_enabled = self.get_parameter(
+            'obstacle_avoidance_enabled').value
+        self.obstacle_path_aware_enabled = self.get_parameter(
+            'obstacle_path_aware_enabled').value
+        self.obstacle_forward_angle = math.radians(
+            self.get_parameter('obstacle_forward_angle_deg').value)
+        self.obstacle_corridor_width = self.get_parameter(
+            'obstacle_corridor_width').value
+        self.obstacle_soft_distance = self.get_parameter(
+            'obstacle_soft_distance').value
+        self.obstacle_hard_distance = self.get_parameter(
+            'obstacle_hard_distance').value
+        self.obstacle_soft_speed_cap = self.get_parameter(
+            'obstacle_soft_speed_cap').value
+        self.obstacle_hard_speed_cap = self.get_parameter(
+            'obstacle_hard_speed_cap').value
+        self.obstacle_ttc_soft = self.get_parameter('obstacle_ttc_soft').value
+        self.obstacle_ttc_hard = self.get_parameter('obstacle_ttc_hard').value
+        self.obstacle_brake_gain = self.get_parameter('obstacle_brake_gain').value
+        config_file = self.get_parameter('config_file').value
+        self.qp_solver = self.get_parameter('qp_solver').value
+        self.soft_constraints = self.get_parameter('soft_constraints').value
+        self.slack_rho = self.get_parameter('slack_penalty_lin').value
+        self.slack_mu = self.get_parameter('slack_penalty_quad').value
+
+        Ts = self.get_parameter('Ts').value
+        hz = self.get_parameter('hz').value
+
+        # Build support-class params from ROS parameters
+        support_params = {
+            'Ts': Ts, 'hz': hz,
+            'm': self.get_parameter('m').value,
+            'Iz': self.get_parameter('Iz').value,
+            'Cf': self.get_parameter('Cf').value,
+            'Cr': self.get_parameter('Cr').value,
+            'lf': self.get_parameter('lf').value,
+            'lr': self.get_parameter('lr').value,
+            'mju': self.get_parameter('mju').value,
+            'steer_rate_limit': self.get_parameter('steer_rate_limit').value,
+            'd_a_max': self.get_parameter('d_a_max').value,
+            'heading_position_coupling': self.get_parameter('heading_position_coupling').value,
+            'discretization': self.get_parameter('discretization').value,
+            'Q_diag': list(self.get_parameter('Q_diag').value),
+            'S_diag': list(self.get_parameter('S_diag').value),
+            'R_diag': list(self.get_parameter('R_diag').value),
+        }
+
+        # ── Support class (vehicle model + MPC matrices) ───────────
+        self.support = SupportFilesF1Tenth(support_params)
+        self.constants = self.support.constants
+        self.Ts = self.constants['Ts']
+        self.hz = self.constants['hz']
+        self.inputs = self.constants['inputs']
+        self.outputs = self.constants['outputs']
+
+        # ── Load reference line ─────────────────────────────────────
+        # Both sources feed a raw (N, >=6) [s,x,y,psi,kappa,vx] array through
+        # _ingest_waypoints(), which derives every downstream structure. 'csv'
+        # loads the closed lap once here; 'topic' waits for a generator to publish
+        # a local horizon and ingests it (closed=False) in the callback.
+        self._ref_received = False
+        self.n_waypoints = 0
+        self._last_raw = None
+        self._ref_reject = 0       # count of rejected (degenerate) topic references
+        self._topic_hold_stop = False
+        self._closed_loop = True   # set per-ingest; horizon topic makes it False
+        # Topic mode: the path is in the car frame AT ITS ARRIVAL. The world pose at
+        # that moment (_ref_pose_w) lets odom express the car in that frame as it moves
+        # on until the next path. _ref_t catches a planner that went silent.
+        self._pose_w = None
+        self._ref_pose_w = None
+        self._ref_t = None
+        # Lidar emergency brake (lane_assist lidar_guard): free distance along the path.
+        self._free = None
+        self._free_t = None
+        self._guard_status = ''
+        if self.ref_source == 'topic':
+            # RELIABLE + TRANSIENT_LOCAL so an MPC that starts after the
+            # publisher still latches the last reference. The node runs a
+            # single-threaded executor, so this callback and control_loop never
+            # overlap — the structure swap in _ingest_waypoints needs no lock.
+            ref_qos = QoSProfile(
+                depth=1, reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL)
+            self.ref_path_sub = self.create_subscription(
+                Float64MultiArray, self.ref_path_topic,
+                self._ref_path_callback, ref_qos)
+            if self.topic_free_topic:
+                self.free_sub = self.create_subscription(
+                    Float64, self.topic_free_topic, self._free_callback, 10)
+            self.get_logger().info(
+                f'>>> REFERENCE LINE (topic): {self.ref_path_topic} '
+                '— waiting for first message')
+        else:
+            # reference_csv is the reference-line selector. A bare name resolves
+            # to src/csv_data/<name>.csv; a value containing '/' (or an
+            # absolute/~ path) is used directly.
+            ref = str(reference_csv)
+            if '/' in ref:
+                csv_file = os.path.abspath(os.path.expanduser(ref))
+            else:
+                if not ref.endswith('.csv'):
+                    ref += '.csv'
+                csv_file = os.path.join(
+                    os.path.abspath(os.path.join('src', 'csv_data')), ref)
+            self.get_logger().info(f'>>> REFERENCE LINE (reference_csv): {csv_file}')
+            # CSV columns: s_m; x_m; y_m; psi_rad; kappa_radpm; vx_mps; ax_mps2; ...
+            self._ingest_waypoints(np.loadtxt(csv_file, delimiter=';', skiprows=0))
+            self._ref_received = True
+
+        # ── MPC state ────────────────────────────────────────────��─
+        self.states = np.zeros(6)   # [x_dot, y_dot, psi, psi_dot, X, Y]
+        self.U1 = 0.0               # current steering angle (delta)
+        self.U2 = 0.0               # current acceleration (a)
+        self.du = np.zeros((self.inputs * self.hz, 1))
+        self.state_received = False
+        self.scan_received = False
+        self.last_scan_time = None
+        self.scan_metrics = {
+            'front': float('nan'),
+            'left': float('nan'),
+            'right': float('nan'),
+            'front_min': float('nan'),
+            'left_min': float('nan'),
+            'right_min': float('nan'),
+            'min': float('nan'),
+            'age': float('nan'),
+            'obstacle_front': float('nan'),
+            'obstacle_x': float('nan'),
+            'obstacle_y': float('nan'),
+            'obstacle_bearing': float('nan'),
+        }
+        self._last_wall_clearance = float('nan')
+        self._last_wall_speed_cap = float('nan')
+        self._last_wall_limit_active = False
+        self._last_wall_limit_hard = False
+        self._last_wall_source = ''
+        self._last_speed_ff_blend = self.speed_ff_blend
+        self._brake_decel = 0.0   # slew-limited brake deceleration state [m/s^2]
+        self._lat_err_int = 0.0   # cross-track error integral [m*s]
+        self.iteration = 0
+
+        # ── Warm-started OSQP solver state ──────────────────────────
+        # A single OSQP object is created once and then updated in place each
+        # tick (same sparsity pattern → reuse symbolic factorization) and
+        # warm-started from the previous du solution, instead of building a
+        # fresh problem every call via qpsolvers.
+        self._use_osqp = _OSQP_AVAILABLE and self.qp_solver == 'osqp'
+        self._osqp_prob = None
+        self._osqp_pattern = None   # (P.nnz, A.nnz, m) — re-setup if it changes
+        self._z_warm = None         # warm-start vector for the augmented [du; slack]
+        self._last_slack = 0.0      # max state-constraint violation last solve
+        # Input-rate box rows (hard); the remaining constraint rows are the state
+        # limits that get softened. G = vstack(I_mega_global, state_constraints),
+        # I_mega_global has 2*inputs*hz rows.
+        self._n_hard_rows = 2 * self.inputs * self.hz
+
+        # ── Profiling accumulators (per-stage timing, averaged over a window) ──
+        self._prof_build = 0.0    # state_space + mpc_simplification
+        self._prof_reg = 0.0      # Hessian symmetrize + eigvalsh regularization
+        self._prof_solve = 0.0    # QP solve
+        self._prof_total = 0.0    # whole control_loop
+        self._prof_count = 0
+
+        # Lap timing
+        self.prev_wp_idx = 0
+        self.nr_laps = 0
+        self.lap_start_time = None
+        self.lap_crossed_half = False
+
+        # ── ROS pub/sub ───────────────���──────────��──────────────────
+        # The Gazebo diff_drive plugin publishes odom as BEST_EFFORT (matching
+        # pose_reset.py / sysid_excite.py). The subscription must use the same
+        # reliability or QoS is incompatible and no odom is ever delivered.
+        odom_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
+        self.odom_sub = self.create_subscription(
+            Odometry, odom_topic, self.odom_callback, odom_qos)
+        self.scan_sub = self.create_subscription(
+            LaserScan, scan_topic, self.scan_callback, odom_qos)
+        self.reset_sub = self.create_subscription(
+            PoseWithCovarianceStamped, self.initialpose_topic,
+            self.initialpose_callback, 10)
+
+        self.drive_pub = self.create_publisher(AckermannDriveStamped, drive_topic, 1)
+
+        self.vis_ref_pub = self.create_publisher(Marker, '/lpv_mpc_gazebo/ref_traj', 1)
+        self.vis_pred_pub = self.create_publisher(Marker, '/lpv_mpc_gazebo/pred_path', 1)
+
+        # Control timer at 1/Ts Hz
+        self.control_timer = self.create_timer(self.Ts, self.control_loop)
+
+        self.get_logger().info(
+            f'LPV-MPC node started  |  Ts={self.Ts}s  hz={self.hz}  '
+            f'solver={self.qp_solver}  disc={self.constants["discretization"]}  coupling={self.constants["heading_position_coupling"]}  '
+            f'speed_scale={self.speed_scale}  '
+            f'ff_blend={self.speed_ff_blend}  cmd_horizon={self.cmd_accel_horizon}s')
+        self.get_logger().info(f'LPV-MPC code file: {__file__}')
+        self.get_logger().info(f'LPV-MPC config file: {config_file}')
+        self.get_logger().info(
+            'RViz topics: /lpv_mpc_gazebo/ref_traj, '
+            '/lpv_mpc_gazebo/pred_path')
+
+        # ── Per-run CSV debug log ───────────────────────────────────
+        self._init_csv_log()
+
+    def _reset_tracking_state(self, reason='reset'):
+        """Clear controller memory after a teleport/reset.
+
+        The normal lap controller uses a local nearest-waypoint window and warm
+        starts inputs/QP state from the previous tick. That is good while driving
+        continuously, but wrong after /initialpose jumps the car to another part
+        of the track for rich data collection.
+        """
+        self.nn_seeded = False
+        self.nn_idx = 0
+        self.U1 = 0.0
+        self.U2 = 0.0
+        self.du = np.zeros((self.inputs * self.hz, 1))
+        self._z_warm = None
+        self._last_slack = 0.0
+        self._brake_decel = 0.0
+        self._ref_pose_w = None
+        self._lat_err_int = 0.0
+        self.prev_wp_idx = 0
+        self.lap_start_time = None
+        self.lap_crossed_half = False
+        if hasattr(self, 'drive_pub'):
+            self._publish_drive(0.0, 0.0)
+        self.get_logger().info(f'Reset MPC tracking memory ({reason})')
+
+    def initialpose_callback(self, _msg):
+        self._reset_tracking_state('/initialpose')
+
+    def _resample_open(self, raw, ds_target=0.10):
+        """Resample an OPEN (N,>=6) path to a uniform ~ds_target spacing along its
+        arc length, so _build_reference's fixed-ds indexing stays valid however
+        coarsely the generator sampled. Interpolates x,y (cols 1,2) and vx (col 5);
+        s/psi/kappa are recomputed downstream, so those columns are filler zeros in
+        the (M,6) result."""
+        xy = raw[:, 1:3]
+        seg = np.linalg.norm(np.diff(xy, axis=0), axis=1)
+        s = np.concatenate([[0.0], np.cumsum(seg)])
+        total = float(s[-1])
+        if total < ds_target:            # too short to resample meaningfully
+            return raw
+        m = max(2, int(round(total / ds_target)) + 1)
+        s_new = np.linspace(0.0, total, m)
+        x_new = np.interp(s_new, s, xy[:, 0])
+        y_new = np.interp(s_new, s, xy[:, 1])
+        v_new = np.interp(s_new, s, raw[:, 5])
+        z = np.zeros(m)
+        return np.column_stack([s_new, x_new, y_new, z, z, v_new])
+
+    def _ingest_waypoints(self, raw, closed=True):
+        """Build every reference-line structure from a raw (N, >=6) array with
+        columns [s, x, y, psi, kappa, vx, ...]. Shared by the CSV loader and the
+        /planning/ref_path callback so both sources behave identically. Only
+        x,y (cols 1,2), kappa (col 4) and vx (col 5) are read; psi and s are
+        recomputed from geometry below, so those columns may be filler.
+
+        closed=True  : a whole closed lap — wrap heading/segments around it.
+        closed=False : a short OPEN local horizon ahead of the car (the message
+                       IS the horizon). Resampled to a uniform fine spacing;
+                       headings/ends treated as an open polyline;
+                       _build_reference/_lookahead clamp at the ends (no wrap)."""
+        self._closed_loop = bool(closed)
+        raw = np.asarray(raw, dtype=float)
+        if not closed:
+            raw = self._resample_open(raw)
+            self.nn_seeded = False
+            self.nn_idx = 0
+        self.waypoints = raw
+
+        # Drop interior consecutive duplicates that would spike the geometry
+        # heading. For a closed lap, also drop the closure duplicate (last==first).
+        _d = np.linalg.norm(np.diff(self.waypoints[:, 1:3], axis=0), axis=1)
+        self.waypoints = self.waypoints[np.concatenate([[True], _d > 1e-6])]
+        if closed and np.linalg.norm(
+                self.waypoints[0, 1:3] - self.waypoints[-1, 1:3]) < 1e-6:
+            self.waypoints = self.waypoints[:-1]
+
+        # Auto-orient to the CCW driving direction — only meaningful for a closed
+        # loop. Some raceline exporters wind the opposite way; following such a
+        # line drives it in reverse (heading points backwards -> instant spin).
+        # An open horizon is already ordered front-to-back by the publisher.
+        if closed:
+            _x, _y = self.waypoints[:, 1], self.waypoints[:, 2]
+            signed_area = 0.5 * np.sum(_x * np.roll(_y, -1) - np.roll(_x, -1) * _y)
+            self._reference_reversed = signed_area < 0.0
+            if self._reference_reversed:
+                self.waypoints = self.waypoints[::-1].copy()
+                self.get_logger().warn(
+                    'Reference line is clockwise; reversed it to match the CCW '
+                    'driving direction (order + heading flipped).')
+        else:
+            self._reference_reversed = False
+
+        self.n_waypoints = self.waypoints.shape[0]
+        self.wp_xy = self.waypoints[:, 1:3]            # (N, 2) for nearest-point
+        self.wp_vx = self.waypoints[:, 5].copy()        # speed [m/s]
+
+        # Heading from point geometry (not the file's psi column, which exporters
+        # populate inconsistently). Closed: wrap the last heading to the first
+        # (np.roll). Open: forward differences, last point copies the previous
+        # heading so there's no spurious wrap-around at the horizon end.
+        if closed:
+            _dx = np.roll(self.wp_xy[:, 0], -1) - self.wp_xy[:, 0]
+            _dy = np.roll(self.wp_xy[:, 1], -1) - self.wp_xy[:, 1]
+            self.wp_psi = np.unwrap(np.arctan2(_dy, _dx))
+        else:
+            _dx = np.diff(self.wp_xy[:, 0])
+            _dy = np.diff(self.wp_xy[:, 1])
+            _h = np.arctan2(_dy, _dx)
+            self.wp_psi = np.unwrap(np.concatenate([_h, _h[-1:]]))
+
+        # Arc-length + spacing recomputed from geometry.
+        _seg = np.linalg.norm(np.diff(self.wp_xy, axis=0), axis=1)
+        self.wp_s = np.concatenate([[0.0], np.cumsum(_seg)])
+        self.ds = float(np.mean(_seg))
+
+        # ── Nearest-point: precomputed segments + local windowed search ──
+        # Build the closed-loop segment vectors/lengths once (instead of
+        # recomputing them every tick), and search only a local window around
+        # the previous index. At 50 Hz the car advances < 1 waypoint per tick,
+        # so a window of a few tens of segments always contains the true
+        # nearest point while scanning ~15x fewer candidates than the full loop.
+        self.wp_diffs, self.wp_l2s = precompute_segments(self.wp_xy)
+        if not closed:
+            # Open horizon: no last -> first segment. precompute_segments closes the
+            # loop, and for a car-frame path that closing segment runs from the path's
+            # end back past the car, so it always won the nearest-point search and the
+            # whole MPC reference collapsed onto the path's LAST point (corner cutting).
+            self.wp_diffs[-1] = 0.0
+        self.nn_back = 20            # segments to look behind the seed
+        self.nn_fwd = 60            # segments to look ahead of the seed
+        self.nn_idx = 0             # rolling seed index (last nearest segment)
+        self.nn_seeded = False      # first tick does one global scan to seed
+
+        # Minimum reference speed. CSV/racing mode keeps the historical dynamic
+        # model floor; topic mode is a local neural horizon and must be allowed
+        # to command crawl/stop speeds for safe-planner evaluation.
+        if self._closed_loop:
+            self.min_ref_speed = max(self.wp_vx.min() * self.speed_scale, 2.0)
+        else:
+            self.min_ref_speed = max(self.topic_min_ref_speed, 0.0)
+
+        # Per-waypoint target speed = ref speed capped by the curvature/grip
+        # limit (see _build_speed_profile). Both the horizon reference and the
+        # brake lookahead read self.wp_v_target instead of the raw speed.
+        self._build_speed_profile()
+
+        # Only log the load once for a static (CSV/closed) line; a topic horizon
+        # re-ingests every message (~30 Hz) and would otherwise flood the console.
+        if self._closed_loop:
+            self.get_logger().info(
+                f'Loaded {self.n_waypoints} waypoints, avg spacing={self.ds:.4f} m, '
+                f'speed range [{self.wp_vx.min():.1f}, {self.wp_vx.max():.1f}] m/s, '
+                f'min_ref_speed={self.min_ref_speed:.2f} m/s')
+
+    def _ref_path_callback(self, msg):
+        """Ingest a reference line published as a flat, row-major (N, 6) array of
+        [s, x, y, psi, kappa, vx]. Re-derives only when the array changes."""
+        # ponytail: re-ingest is O(N) per message; skipping unchanged arrays
+        # keeps a static/slow line at a single preprocess. Revisit if a
+        # generator rewrites the whole line every cycle (diff-update instead).
+        raw = np.asarray(msg.data, dtype=float)
+        if raw.size < 12 or raw.size % 6 != 0:
+            self.get_logger().warn(
+                f'Ignoring ref_path: {raw.size} values '
+                '(need a multiple of 6, >= 2 points).')
+            return
+        raw = raw.reshape(-1, 6)
+        seg = np.linalg.norm(np.diff(raw[:, 1:3], axis=0), axis=1)
+        total = float(seg.sum())
+        n_distinct = 1 + int((seg > 1e-6).sum())
+        max_ref_speed = float(np.nanmax(np.abs(raw[:, 5])))
+        now = self.get_clock().now().nanoseconds * 1e-9
+        if max_ref_speed <= self.topic_stop_speed_thresh:
+            self._ref_t = now
+            # A zero-speed topic horizon is an explicit HOLD command from the
+            # planner (for example, waiting for an RViz 2D Nav Goal). Treat it
+            # differently from malformed geometry so we do not keep following a
+            # previous moving reference or trigger the low-speed startup command.
+            self._last_raw = raw
+            self._topic_hold_stop = True
+            self._ref_received = False
+            self.n_waypoints = 0
+            self.U1 = 0.0
+            self.U2 = 0.0
+            self.du = np.zeros((self.inputs * self.hz, 1))
+            self._z_warm = None
+            self._brake_decel = 0.0
+            if self._ref_reject % 30 == 0:
+                self.get_logger().warn(
+                    f'Received zero-speed ref_path; holding vehicle stopped '
+                    f'(arc_len={total:.2f} m, distinct={n_distinct}).')
+            self._ref_reject += 1
+            return
+        if self._last_raw is not None and np.array_equal(raw, self._last_raw):
+            self._ref_t = now
+            return
+        # Reject a degenerate/garbage horizon so a bad generator can never crash
+        # the controller: require >= 2 distinct points spanning a sane arc length.
+        # On rejection, HOLD the last good reference (do not update wp_* at all).
+        if n_distinct < 2 or total < 1.0 or total > 60.0:
+            self._ref_reject += 1
+            if self._ref_reject % 30 == 1:      # throttle (~1 s at 30 Hz)
+                self.get_logger().warn(
+                    f'Ignoring degenerate ref_path (points={raw.shape[0]}, '
+                    f'distinct={n_distinct}, arc_len={total:.2f} m) — holding last '
+                    f'reference. The generator output looks bad.')
+            return
+        self._last_raw = raw
+        self._topic_hold_stop = False
+        self._ref_t = now
+        self._ref_pose_w = self._pose_w
+        L = self.topic_ref_lookahead_m
+        if L > 0.0 and raw[-1, 1] > L + 0.2:
+            # The camera path's near end is its least reliable part (2026-10-13: ViT
+            # 0.4-0.6 m wrong at the car beside decoy rows). Replace the first L m by
+            # the path's tangent line at L, extended back: the MPC tracks the trusted
+            # part and nothing shifts in time. Cost: kappa*L^2/2 on curves (0.06 m at
+            # L=1 m, R=8 m = the tightest test road). A parabola kept the bend but
+            # amplified the near-end error (harness 2026-10-14).
+            raw = raw.copy()
+            yL = float(np.interp(L, raw[:, 1], raw[:, 2]))
+            slope = (float(np.interp(L + 0.2, raw[:, 1], raw[:, 2])) - yL) / 0.2
+            near = raw[:, 1] < L
+            raw[near, 2] = yL + slope * (raw[near, 1] - L)
+        # A topic reference is always a short OPEN local horizon (the CSV path
+        # handles the closed lap). The generator/window_republisher publishes it.
+        self._ingest_waypoints(raw, closed=False)
+        self._ref_received = True
+
+    def _free_callback(self, msg):
+        self._free = float(msg.data)
+        self._free_t = self.get_clock().now().nanoseconds * 1e-9
+
+    # ──────────────────────────────────────────────────────────────
+    #  Odometry callback — extract state from sim
+    # ────────────────────────────────────────────────────────────────
+    def odom_callback(self, msg):
+        """Store latest vehicle state from the simulator odometry."""
+        pose = msg.pose.pose
+        twist = msg.twist.twist
+
+        # Body-frame velocities (the sim already provides these in body frame).
+        # These are measured in either mode — the dynamic bicycle model needs
+        # them whatever frame the pose is expressed in.
+        x_dot = twist.linear.x
+        y_dot = twist.linear.y
+        psi_dot = twist.angular.z
+
+        X = pose.position.x
+        Y = pose.position.y
+
+        # Quaternion → yaw
+        q = pose.orientation
+        yaw = math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        self._pose_w = (X, Y, yaw)
+
+        if self.ref_source == 'topic':
+            # EGO-CENTRIC: the reference is in base_link at the moment it arrived.
+            # Express the car in THAT frame (odom motion since the arrival), so the
+            # MPC sees the car move along the path between planner messages
+            # (20 Hz path, 50 Hz control; at 3 m/s that is 0.15 m per message).
+            if self._ref_pose_w is None:
+                X, Y, yaw = 0.0, 0.0, 0.0
+            else:
+                x0, y0, yaw0 = self._ref_pose_w
+                c, s = math.cos(yaw0), math.sin(yaw0)
+                X, Y = (c * (X - x0) + s * (Y - y0),
+                        -s * (X - x0) + c * (Y - y0))
+                yaw = math.atan2(math.sin(yaw - yaw0), math.cos(yaw - yaw0))
+                # ponytail: > 2 m since the last path = a teleport (odom jumped), not
+                # driving (2 m takes 0.5 s = ref timeout at 4 m/s); use the path as-is
+                if math.hypot(X, Y) > 2.0:
+                    X, Y, yaw = 0.0, 0.0, 0.0
+
+        self.states = np.array([x_dot, y_dot, yaw, psi_dot, X, Y])
+        self.state_received = True
+
+    def scan_callback(self, msg):
+        """Store wall-clearance metrics from the latest LaserScan."""
+        ranges = np.asarray(msg.ranges, dtype=float)
+        valid = (
+            np.isfinite(ranges)
+            & (ranges >= msg.range_min)
+            & (ranges <= msg.range_max))
+
+        def beam_at(angle):
+            if angle < msg.angle_min or angle > msg.angle_max:
+                return float('nan')
+            idx = int(round((angle - msg.angle_min) / msg.angle_increment))
+            if idx < 0 or idx >= ranges.size or not valid[idx]:
+                return float('nan')
+            return float(ranges[idx])
+
+        def sector_min(angle):
+            half_width = 0.5 * self.scan_sector_width
+            lo = max(angle - half_width, msg.angle_min)
+            hi = min(angle + half_width, msg.angle_max)
+            if lo > hi:
+                return float('nan')
+            i0 = max(0, int(math.floor((lo - msg.angle_min) / msg.angle_increment)))
+            i1 = min(ranges.size - 1,
+                     int(math.ceil((hi - msg.angle_min) / msg.angle_increment)))
+            sector = ranges[i0:i1 + 1]
+            sector_valid = valid[i0:i1 + 1]
+            if not np.any(sector_valid):
+                return float('nan')
+            return float(np.min(sector[sector_valid]))
+
+        if np.any(valid):
+            scan_min = float(np.min(ranges[valid]))
+        else:
+            scan_min = float('nan')
+
+        angles = msg.angle_min + np.arange(ranges.size) * msg.angle_increment
+        xs = ranges * np.cos(angles)
+        ys = ranges * np.sin(angles)
+        corridor_half_width = 0.5 * self.obstacle_corridor_width
+        obstacle_mask = (
+            valid
+            & (xs > 0.0)
+            & (np.abs(ys) <= corridor_half_width)
+            & (np.abs(angles) <= self.obstacle_forward_angle))
+        if self.obstacle_avoidance_enabled and np.any(obstacle_mask):
+            obstacle_idxs = np.flatnonzero(obstacle_mask)
+            nearest_local_idx = int(np.argmin(xs[obstacle_idxs]))
+            obstacle_idx = int(obstacle_idxs[nearest_local_idx])
+            obstacle_front = float(ranges[obstacle_idx])
+            obstacle_x = float(xs[obstacle_idx])
+            obstacle_y = float(ys[obstacle_idx])
+            obstacle_bearing = float(angles[obstacle_idx])
+        else:
+            obstacle_front = obstacle_x = obstacle_y = obstacle_bearing = float('nan')
+
+        self.scan_metrics = {
+            'front': beam_at(self.scan_front_angle),
+            'left': beam_at(self.scan_left_angle),
+            'right': beam_at(self.scan_right_angle),
+            'front_min': sector_min(self.scan_front_angle),
+            'left_min': sector_min(self.scan_left_angle),
+            'right_min': sector_min(self.scan_right_angle),
+            'min': scan_min,
+            'age': 0.0,
+            'obstacle_front': obstacle_front,
+            'obstacle_x': obstacle_x,
+            'obstacle_y': obstacle_y,
+            'obstacle_bearing': obstacle_bearing,
+        }
+        self.last_scan_time = self.get_clock().now().nanoseconds * 1e-9
+        self.scan_received = True
+
+    def _scan_metrics_for_log(self):
+        scan = dict(self.scan_metrics)
+        if self.scan_received and self.last_scan_time is not None:
+            now = self.get_clock().now().nanoseconds * 1e-9
+            scan['age'] = max(0.0, now - self.last_scan_time)
+        return scan
+
+    def _inactive_wall_guard(self):
+        return {
+            'active': False,
+            'hard': False,
+            'clearance': float('nan'),
+            'speed_cap': float('nan'),
+            'source': '',
+        }
+
+    def _record_wall_guard(self, guard):
+        self._last_wall_clearance = guard['clearance']
+        self._last_wall_speed_cap = guard['speed_cap']
+        self._last_wall_limit_active = guard['active']
+        self._last_wall_limit_hard = guard['hard']
+        self._last_wall_source = guard['source']
+
+    def _compute_wall_guard(self, current_speed=0.0, path_heading=0.0):
+        """LiDAR clearance speed guard, inspired by MPPI wall soft-hinge costs."""
+        guard = self._inactive_wall_guard()
+        if not self.wall_avoidance_enabled or not self.scan_received:
+            return guard
+
+        scan = self._scan_metrics_for_log()
+        age = scan.get('age', float('nan'))
+        if math.isfinite(age) and age > self.wall_scan_max_age:
+            return guard
+
+        candidates = []
+        side_vals = [
+            v for v in (scan.get('left_min'), scan.get('right_min'))
+            if v is not None and math.isfinite(v)
+        ]
+        if side_vals:
+            candidates.append((
+                'side', min(side_vals),
+                self.wall_soft_clearance, self.wall_hard_clearance,
+                self.wall_soft_speed_cap, self.wall_hard_speed_cap))
+
+        front = scan.get('front_min')
+        if front is not None and math.isfinite(front):
+            candidates.append((
+                'front', front,
+                self.wall_front_soft_clearance, self.wall_front_hard_clearance,
+                self.wall_soft_speed_cap, self.wall_hard_speed_cap))
+
+        obstacle_x = scan.get('obstacle_x')
+        if (self.obstacle_avoidance_enabled
+                and obstacle_x is not None and math.isfinite(obstacle_x)):
+            obstacle_y = scan.get('obstacle_y')
+            use_obstacle = True
+            if (self.obstacle_path_aware_enabled
+                    and obstacle_y is not None and math.isfinite(obstacle_y)
+                    and math.isfinite(path_heading)):
+                heading = float(np.clip(
+                    path_heading, -self.obstacle_forward_angle,
+                    self.obstacle_forward_angle))
+                path_y = obstacle_x * math.tan(heading)
+                path_lateral_error = obstacle_y - path_y
+                corridor_half_width = 0.5 * self.obstacle_corridor_width
+                use_obstacle = abs(path_lateral_error) <= corridor_half_width
+            if use_obstacle:
+                candidates.append((
+                    'obstacle', obstacle_x,
+                    self.obstacle_soft_distance, self.obstacle_hard_distance,
+                    self.obstacle_soft_speed_cap, self.obstacle_hard_speed_cap))
+
+        if not candidates:
+            return guard
+
+        scored = []
+        for source, clearance, soft, hard, soft_cap, hard_cap in candidates:
+            denom = max(soft - hard, 1e-3)
+            distance_risk = float(np.clip((soft - clearance) / denom, 0.0, 1.0))
+            risk = distance_risk
+            if source == 'obstacle':
+                ttc = clearance / max(float(current_speed), 0.1)
+                ttc_denom = max(self.obstacle_ttc_soft - self.obstacle_ttc_hard, 1e-3)
+                ttc_risk = float(np.clip(
+                    (self.obstacle_ttc_soft - ttc) / ttc_denom, 0.0, 1.0))
+                risk = max(distance_risk, ttc_risk)
+            scored.append((risk, clearance, source, soft, hard, soft_cap, hard_cap))
+
+        if any(risk > 0.0 for risk, *_ in scored):
+            risk, clearance, source, soft, hard, soft_cap, hard_cap = max(
+                scored, key=lambda item: (item[0], -item[1]))
+        else:
+            risk, clearance, source, soft, hard, soft_cap, hard_cap = min(
+                scored, key=lambda item: item[1])
+        guard['clearance'] = clearance
+        guard['source'] = source
+        if risk <= 0.0:
+            return guard
+
+        guard['speed_cap'] = (
+            (1.0 - risk) * soft_cap
+            + risk * hard_cap)
+        guard['active'] = True
+        guard['hard'] = clearance <= hard
+        return guard
+
+    def _apply_wall_guard_to_speed(self, speed_cmd, current_speed, guard):
+        if not guard['active'] or not math.isfinite(guard['speed_cap']):
+            return speed_cmd
+
+        cap = guard['speed_cap']
+        if guard['hard'] and current_speed > cap:
+            brake_gain = (self.obstacle_brake_gain
+                          if guard.get('source') == 'obstacle'
+                          else self.wall_brake_gain)
+            return min(speed_cmd, cap - brake_gain * (current_speed - cap))
+        return min(speed_cmd, cap)
+
+    def _slew_brake_decel(self, target_decel):
+        """Rate-limit the braking deceleration [m/s^2] so it ramps smoothly
+        instead of stepping. Ported from the Frenet controller's brake-current
+        slew limiter: a step change in braking is a jerk that can break the rear
+        loose on the dynamic model. Returns the slewed decel."""
+        target = max(0.0, min(self.brake_decel_max, float(target_decel)))
+        if self.brake_slew_rate <= 0.0:
+            self._brake_decel = target
+            return target
+        max_delta = self.brake_slew_rate * self.Ts
+        prev = self._brake_decel
+        if target > prev:
+            cmd = min(target, prev + max_delta)
+        else:
+            cmd = max(target, prev - max_delta)
+        self._brake_decel = cmd
+        return cmd
+
+    def _adaptive_speed_ff_blend(self, lat_err, heading_err, pred_lat_growth,
+                                 pred_lat_end, pred_heading_peak, slip,
+                                 wall_guard, recovery_active,
+                                 hard_recovery_active):
+        if not self.adaptive_speed_ff_enabled:
+            return float(self.speed_ff_blend)
+        if hard_recovery_active:
+            return float(self.speed_ff_blend)
+
+        base = float(self.speed_ff_blend)
+        max_blend = max(base, float(self.adaptive_speed_ff_blend_max))
+        risk_start = float(np.clip(self.adaptive_speed_ff_risk_start, 0.0, 0.99))
+
+        pred_risk = max(
+            max(pred_lat_growth, 0.0) / max(self.predictive_recovery_lat_growth, 1e-3),
+            pred_lat_end / max(self.predictive_recovery_lat_end, 1e-3),
+            pred_heading_peak / max(self.predictive_recovery_heading_err, 1e-3))
+        current_risk = max(
+            abs(lat_err) / max(self.recovery_lat_err, 1e-3),
+            abs(heading_err) / max(self.recovery_heading_err, 1e-3))
+        slip_risk = abs(slip) / max(self.adaptive_speed_ff_slip, 1e-3)
+
+        clearance_risk = 0.0
+        clearances = []
+        source = wall_guard.get('source', '')
+        if source in ('side', 'front'):
+            clearance = wall_guard.get('clearance', float('nan'))
+            if math.isfinite(clearance):
+                clearances.append(clearance)
+        scan = self._scan_metrics_for_log()
+        for key in ('min', 'left_min', 'right_min', 'front_min'):
+            value = scan.get(key, float('nan'))
+            if math.isfinite(value):
+                clearances.append(value)
+        if clearances:
+            clearance = min(clearances)
+            denom = max(self.adaptive_speed_ff_clearance_soft
+                        - self.adaptive_speed_ff_clearance_hard, 1e-3)
+            clearance_risk = float(np.clip(
+                (self.adaptive_speed_ff_clearance_soft - clearance) / denom,
+                0.0, 1.0))
+
+        risk = max(pred_risk, current_risk, slip_risk, clearance_risk)
+        if recovery_active:
+            risk = max(risk, 1.0)
+        if risk <= risk_start:
+            scale = 1.0
+        elif risk >= 1.0:
+            scale = 0.0
+        else:
+            scale = (1.0 - risk) / max(1.0 - risk_start, 1e-3)
+        return float(base + (max_blend - base) * scale)
+
+    # ────────────────────────────────────────────────────────────────
+    #  Main control loop (timer callback)
+    # ──────────────────────────────────────────────────────────────
+    def control_loop(self):
+        if not self.state_received:
+            self._record_wall_guard(self._inactive_wall_guard())
+            self._log_row('waiting_odom', self.states.copy())
+            self.iteration += 1
+            return
+
+        if (self.ref_source == 'topic' and self._ref_t is not None
+                and self.get_clock().now().nanoseconds * 1e-9 - self._ref_t > self.topic_ref_timeout):
+            # The planner stopped publishing (camera lost, node died): never keep
+            # driving on the last path.
+            self._record_wall_guard(self._inactive_wall_guard())
+            self._publish_drive(0.0, 0.0)
+            self._log_row('ref_stale', self.states.copy(), speed_cmd=0.0)
+            self.iteration += 1
+            return
+
+        if self._topic_hold_stop:
+            self._record_wall_guard(self._inactive_wall_guard())
+            self._publish_drive(0.0, 0.0)
+            self._log_row('topic_stop', self.states.copy(),
+                          speed_cmd=0.0, ref_speed=0.0)
+            self.iteration += 1
+            return
+
+        if not self._ref_received or self.n_waypoints < 2:
+            status = 'waiting_ref'
+            self._record_wall_guard(self._inactive_wall_guard())
+            self._log_row(status, self.states.copy())
+            self.iteration += 1
+            return
+
+        t_loop_start = time.perf_counter()
+        states = self.states.copy()
+        self._record_wall_guard(self._inactive_wall_guard())
+
+        # Ensure minimum forward velocity for the dynamic model. CSV/racing mode
+        # uses the historical 2 m/s launch. Topic/neural mode must not override
+        # a cautious reference, so it uses a tiny crawl threshold/speed.
+        low_speed_thresh = 1.5 if self._closed_loop else max(
+            self.topic_low_speed_mpc_thresh, 0.0)
+        if states[0] < low_speed_thresh:
+            if self._closed_loop:
+                startup_speed = 2.0
+            else:
+                ref_cap = float(np.nanmax(self.wp_v_target)) if self.wp_v_target.size else 0.0
+                startup_speed = min(max(self.topic_startup_speed, 0.0), ref_cap)
+            self._publish_drive(self.U1, startup_speed)
+            self._log_row('startup', states, speed_cmd=startup_speed)
+            self.iteration += 1
+            return
+
+        hz = self.hz  # local copy (stays constant for closed track)
+
+        # ── 1. Find nearest waypoint (local windowed search) ────────
+        point = np.array([states[4], states[5]])
+        if not self.nn_seeded:
+            # Seed the rolling index once with a full scan, then go local.
+            _, _, _, seed = nearest_point(point, self.wp_xy)
+            self.nn_idx = int(seed)
+            self.nn_seeded = True
+        _, _, _, wp_idx = nearest_point_windowed(
+            point, self.wp_xy, self.wp_diffs, self.wp_l2s,
+            self.nn_idx, self.nn_back, self.nn_fwd)
+        wp_idx = int(wp_idx)
+        self.nn_idx = wp_idx  # advance the rolling seed
+
+        # ── Lap timing ──────────────────────────────────────────────
+        self._update_lap_timing(wp_idx)
+
+        # ── 2. Build reference vector for the horizon ──────────────
+        r = self._build_reference(states, wp_idx, hz)
+
+        # Brake-aware feedforward speed target (also used by the QP-failure
+        # fallbacks below so they BRAKE toward the reference instead of
+        # coasting at the current speed, which used to cancel braking exactly
+        # at hard corner entries where the QP is most likely infeasible).
+        ff_ref_speed = self._lookahead_ref_speed(wp_idx, states[0])
+        path_heading = math.atan2(
+            math.sin(float(r[1]) - states[2]),
+            math.cos(float(r[1]) - states[2]))
+
+        # ── 3. Linearize & build QP ───────────────────────────���────
+        t_build_start = time.perf_counter()
+        Ad, Bd, Cd, Dd = self.support.state_space(states, self.U1, self.U2)
+
+        x_aug_t = np.array([[states[0]], [states[1]], [states[2]],
+                            [states[3]], [states[4]], [states[5]],
+                            [self.U1], [self.U2]])
+
+        Hdb, Fdbt, Cdb, Adc, G, ht = self.support.mpc_simplification(
+            Ad, Bd, Cd, Dd, hz, x_aug_t, self.du)
+
+        ft = np.concatenate((x_aug_t.flatten(), r)) @ Fdbt
+        t_build = time.perf_counter() - t_build_start
+
+        # ── 4. Solve QP ────────────────────────────────────────────
+        # Symmetrize and add a small fixed ridge for numerical robustness.
+        # Hdb = Cdb.T Qdb Cdb + Rdb is PD by construction (Rdb is strictly
+        # positive-definite), so the previous per-tick eigendecomposition was
+        # pure overhead — a fixed ridge guarantees PD far more cheaply and
+        # also keeps the sparsity pattern stable for the warm-started solver.
+        t_reg_start = time.perf_counter()
+        Hdb = 0.5 * (Hdb + Hdb.T)
+        Hdb[np.diag_indices_from(Hdb)] += 1e-6
+        t_reg = time.perf_counter() - t_reg_start
+
+        t_solve_start = time.perf_counter()
+        try:
+            du_sol = self._solve_qp(Hdb, ft, G, ht)
+            if du_sol is None:
+                if self.iteration % 50 == 0:
+                    # Check which constraints are infeasible at du=0
+                    slack = ht - G @ np.zeros(G.shape[1])
+                    n_violated = np.sum(slack < 0)
+                    self.get_logger().warn(
+                        f'QP infeasible: {n_violated} constraints violated at du=0  '
+                        f'states={np.round(states, 3)}  U1={self.U1:.4f} U2={self.U2:.4f}  '
+                        f'min_slack={slack.min():.4f}')
+                # Brake toward the reference (do NOT coast at current speed).
+                brake_cmd = min(states[0], ff_ref_speed)
+                wall_guard = self._compute_wall_guard(states[0], path_heading)
+                self._record_wall_guard(wall_guard)
+                brake_cmd = self._apply_wall_guard_to_speed(
+                    brake_cmd, states[0], wall_guard)
+                self._publish_drive(self.U1, brake_cmd)
+                self._log_row('qp_infeasible', states, wp_idx, r,
+                              speed_cmd=brake_cmd, ref_speed=ff_ref_speed, t_build=t_build)
+                self.iteration += 1
+                return
+            self.du = du_sol.reshape(-1, 1)
+        except Exception as e:
+            if self.iteration % 50 == 0:
+                self.get_logger().warn(f'QP exception: {e}  states={np.round(states, 3)}')
+            brake_cmd = min(states[0], ff_ref_speed)
+            wall_guard = self._compute_wall_guard(states[0], path_heading)
+            self._record_wall_guard(wall_guard)
+            brake_cmd = self._apply_wall_guard_to_speed(
+                brake_cmd, states[0], wall_guard)
+            self._publish_drive(self.U1, brake_cmd)
+            self._log_row('qp_exception', states, wp_idx, r,
+                          speed_cmd=brake_cmd, ref_speed=ff_ref_speed, t_build=t_build)
+            self.iteration += 1
+            return
+        t_solve = time.perf_counter() - t_solve_start
+
+        # ── 5. Update inputs ──────────────────────────��─────────────
+        self.U1 += self.du[0][0]   # steering angle
+        self.U2 += self.du[1][0]   # acceleration
+
+        # Clamp steering and acceleration to stay within constraint bounds.
+        # Forward accel is additionally traction-limited at low speed (matching
+        # the soft QP cap in support_files) so the car can't floor the throttle
+        # from a standstill and spin the tires. Braking is not limited.
+        max_steer = 0.4189
+        self.U1 = np.clip(self.U1, -max_steer, max_steer)
+        accel_cap = min(3.0, 0.5 + 0.6 * max(states[0], 1.5))
+        self.U2 = np.clip(self.U2, -3.0, accel_cap)
+
+        pred_aug = (Adc @ x_aug_t + Cdb @ self.du).flatten()
+
+        ref_psi = float(r[1])
+        err_X = states[4] - float(r[2])
+        err_Y = states[5] - float(r[3])
+        lat_err = -math.sin(ref_psi) * err_X + math.cos(ref_psi) * err_Y
+        heading_err = math.atan2(
+            math.sin(states[2] - ref_psi),
+            math.cos(states[2] - ref_psi))
+        slip = math.atan2(states[1], states[0]) if abs(states[0]) > 1e-3 else 0.0
+        recovery_active = (
+            abs(lat_err) > self.recovery_lat_err
+            or abs(heading_err) > self.recovery_heading_err
+            or abs(slip) > self.recovery_slip_err)
+        hard_recovery_active = (
+            abs(lat_err) > self.recovery_hard_lat_err
+            or abs(heading_err) > self.recovery_hard_heading_err
+            or abs(slip) > self.recovery_hard_slip_err)
+
+        n_aug = 6 + self.inputs
+        pred_lat = []
+        pred_heading_err = []
+        for k in range(hz):
+            p0 = n_aug * k
+            r0 = self.outputs * k
+            pred_X = float(pred_aug[p0 + 4])
+            pred_Y = float(pred_aug[p0 + 5])
+            pred_psi = float(pred_aug[p0 + 2])
+            ref_psi_k = float(r[r0 + 1])
+            err_X_k = pred_X - float(r[r0 + 2])
+            err_Y_k = pred_Y - float(r[r0 + 3])
+            pred_lat.append(
+                -math.sin(ref_psi_k) * err_X_k
+                + math.cos(ref_psi_k) * err_Y_k)
+            pred_heading_err.append(math.atan2(
+                math.sin(pred_psi - ref_psi_k),
+                math.cos(pred_psi - ref_psi_k)))
+        pred_lat_start = abs(pred_lat[0]) if pred_lat else abs(lat_err)
+        pred_lat_end = abs(pred_lat[-1]) if pred_lat else abs(lat_err)
+        pred_lat_growth = pred_lat_end - pred_lat_start
+        pred_heading_peak = max((abs(e) for e in pred_heading_err), default=abs(heading_err))
+        predictive_recovery_active = (
+            pred_lat_growth > self.predictive_recovery_lat_growth
+            or pred_lat_end > self.predictive_recovery_lat_end
+            or pred_heading_peak > self.predictive_recovery_heading_err)
+        predictive_hard_recovery_active = (
+            pred_lat_growth > self.predictive_recovery_hard_lat_growth
+            or pred_lat_end > self.predictive_recovery_hard_lat_end
+            or pred_heading_peak > self.predictive_recovery_hard_heading_err)
+        recovery_active = recovery_active or predictive_recovery_active
+        hard_recovery_active = hard_recovery_active or predictive_hard_recovery_active
+        if recovery_active:
+            accel_limit = (self.recovery_accel_cap if hard_recovery_active
+                           else self.recovery_soft_accel_cap)
+            self.U2 = min(self.U2, accel_limit)
+
+        wall_guard = self._compute_wall_guard(states[0], path_heading)
+        if wall_guard['active']:
+            self.U2 = min(self.U2, self.wall_accel_cap)
+        self._record_wall_guard(wall_guard)
+
+        # Compute desired speed (a velocity setpoint for the sim servo).
+        # Feedforward the profiled raceline speed instead of anchoring the
+        # command to measured velocity + one tiny Ts accel step (which starved
+        # the servo and capped the car near its current speed). r[0] is the
+        # first-horizon-step x_dot reference — already scaled by speed_scale
+        # and floored by min_ref_speed. The MPC accel term is integrated over
+        # cmd_accel_horizon (>> Ts) and blended in via speed_ff_blend.
+        # Braking is handled by a dedicated slew-limited decel controller below
+        # (ported from the Frenet controller), replacing the old reverse-speed
+        # hack that stepped the setpoint and jerked the dynamic model.
+        ref_speed = ff_ref_speed
+        mpc_speed = states[0] + self.U2 * self.cmd_accel_horizon
+
+        # Forward speed command: blend of the profiled / brake-lookahead reference
+        # and the MPC-integrated speed.
+        speed_ff_blend = self._adaptive_speed_ff_blend(
+            lat_err, heading_err, pred_lat_growth, pred_lat_end,
+            pred_heading_peak, slip, wall_guard, recovery_active,
+            hard_recovery_active)
+        speed_cmd = (speed_ff_blend * ref_speed
+                     + (1.0 - speed_ff_blend) * mpc_speed)
+
+        # Dedicated brake controller (replaces the reverse-speed hack):
+        #   decel = brake_kp*(over_speed - deadband) + brake_kff*(MPC requested decel)
+        # slew-rate-limited, only ever LOWERS the command. The plant turns the
+        # resulting (possibly reverse) setpoint into a braking force.
+        over_speed = states[0] - ref_speed
+        requested_decel = max(0.0, -self.U2)
+        decel_raw = (self.brake_kp * max(0.0, over_speed - self.brake_deadband)
+                     + self.brake_kff * requested_decel)
+        if decel_raw > 0.0:
+            decel = self._slew_brake_decel(decel_raw)
+            brake_speed = states[0] - decel * self.cmd_accel_horizon
+            if brake_speed < speed_cmd:
+                speed_cmd = brake_speed
+                speed_ff_blend = 0.0
+        else:
+            self._slew_brake_decel(0.0)
+        self._last_speed_ff_blend = speed_ff_blend
+        if recovery_active:
+            cap = (self.recovery_speed_cap if hard_recovery_active
+                   else self.recovery_soft_speed_cap)
+            if hard_recovery_active and states[0] > cap:
+                speed_cmd = min(
+                    speed_cmd,
+                    cap - (states[0] - cap))
+            else:
+                speed_cmd = min(speed_cmd, cap)
+        speed_cmd = self._apply_wall_guard_to_speed(
+            speed_cmd, states[0], wall_guard)
+
+        # ── 6. Publish drive ─────────────────────���──────────────────
+        self._publish_drive(self.U1, speed_cmd)
+
+        # ── 7. Visualization ────────────────────────────────────────
+        self._publish_ref_marker(r, hz)
+        self._publish_pred_marker(pred_aug, hz)
+
+        # ── 8. Logging ─────────────────────────────────────────────
+        self._log_row('ok', states, wp_idx, r, pred_aug=pred_aug, speed_cmd=speed_cmd,
+                      ref_speed=ref_speed, mpc_speed=mpc_speed,
+                      t_build=t_build, t_solve=t_solve)
+        self.iteration += 1
+
+        # Profiling accumulation (averaged + logged every 50 iters)
+        t_total = time.perf_counter() - t_loop_start
+        self._prof_build += t_build
+        self._prof_reg += t_reg
+        self._prof_solve += t_solve
+        self._prof_total += t_total
+        self._prof_count += 1
+
+        if self.iteration % 50 == 0:
+            self.get_logger().info(
+                f'[iter={self.iteration}] wp={wp_idx}  '
+                f'v={states[0]:.2f} m/s  steer={math.degrees(self.U1):.1f}deg  '
+                f'accel={self.U2:.2f}  speed_cmd={speed_cmd:.2f}  '
+                f'wall={self._last_wall_clearance:.2f}/{self._last_wall_speed_cap:.2f}  '
+                f'slack={self._last_slack:.3f}')
+            n = max(self._prof_count, 1)
+            self.get_logger().info(
+                f'[PROFILE avg over {n}]  '
+                f'build={1e3 * self._prof_build / n:.2f}ms  '
+                f'reg={1e3 * self._prof_reg / n:.2f}ms  '
+                f'solve={1e3 * self._prof_solve / n:.2f}ms  '
+                f'total={1e3 * self._prof_total / n:.2f}ms  '
+                f'(budget={1e3 * self.Ts:.0f}ms)')
+            self._prof_build = self._prof_reg = self._prof_solve = self._prof_total = 0.0
+            self._prof_count = 0
+
+    # ────────────────────────────────────────────────────────────────
+    #  QP solve — persistent, warm-started OSQP
+    # ────────────────────────────────────────────────────────────────
+    def _solve_qp(self, Hdb, ft, G, ht):
+        """Solve the MPC QP; returns the du vector (len inputs*hz) or None.
+
+        With soft_constraints=True the STATE-limit rows get a slack variable
+        s>=0 so the problem is ALWAYS feasible (the input-rate box stays hard):
+            min 0.5[du;s]'diag(Hdb, mu I)[du;s] + [ft; rho 1]'[du;s]
+            s.t.  G_hard du <= ht_hard            (input-rate box, hard)
+                  G_soft du - s <= ht_soft        (state limits, soft)
+                  -s <= 0                          (slack non-negative)
+        Slack is heavily penalised (L1 rho + L2 mu) so limits are only violated
+        when the hard problem would otherwise be infeasible — which used to
+        return None and freeze the steering mid-slide.
+        """
+        if not self.soft_constraints:
+            return self._solve_qp_hard(Hdb, ft, G, ht)
+
+        n_du = G.shape[1]
+        n_hard = self._n_hard_rows
+        n_soft = G.shape[0] - n_hard
+
+        if not self._use_osqp:
+            # Dense augmentation for the qpsolvers fallback path.
+            Isoft = np.eye(n_soft)
+            P = np.zeros((n_du + n_soft, n_du + n_soft))
+            P[:n_du, :n_du] = Hdb
+            P[n_du:, n_du:] = self.slack_mu * Isoft
+            q = np.concatenate([ft, self.slack_rho * np.ones(n_soft)])
+            A = np.zeros((n_hard + 2 * n_soft, n_du + n_soft))
+            A[:n_hard, :n_du] = G[:n_hard]
+            A[n_hard:n_hard + n_soft, :n_du] = G[n_hard:]
+            A[n_hard:n_hard + n_soft, n_du:] = -Isoft
+            A[n_hard + n_soft:, n_du:] = -Isoft
+            b = np.concatenate([ht[:n_hard], ht[n_hard:], np.zeros(n_soft)])
+            z = solve_qp(P, q, A, b, solver=self.qp_solver)
+            return None if z is None else z[:n_du]
+
+        # OSQP sparse augmentation (form: min 0.5 z'P z + q'z s.t. l <= A z <= u).
+        Isoft = sparse.identity(n_soft, format='csc')
+        P = sparse.triu(
+            sparse.block_diag([sparse.csc_matrix(Hdb), self.slack_mu * Isoft],
+                              format='csc'), format='csc')
+        q = np.concatenate([ft, self.slack_rho * np.ones(n_soft)])
+        Gsp = sparse.csc_matrix(G)
+        A = sparse.vstack([
+            sparse.hstack([Gsp[:n_hard], sparse.csc_matrix((n_hard, n_soft))]),
+            sparse.hstack([Gsp[n_hard:], -Isoft]),
+            sparse.hstack([sparse.csc_matrix((n_soft, n_du)), -Isoft]),
+        ], format='csc')
+        m = A.shape[0]
+        u = np.concatenate([ht[:n_hard], ht[n_hard:], np.zeros(n_soft)])
+        pattern = (P.nnz, A.nnz, m)
+
+        if self._z_warm is None or self._z_warm.shape[0] != n_du + n_soft:
+            self._z_warm = np.zeros(n_du + n_soft)
+
+        if self._osqp_prob is None or pattern != self._osqp_pattern:
+            self._osqp_prob = osqp.OSQP()
+            self._osqp_prob.setup(
+                P=P, q=q, A=A, l=np.full(m, -np.inf), u=u,
+                verbose=False, warm_start=True, polish=False,
+                eps_abs=1e-3, eps_rel=1e-3, max_iter=4000)
+            self._osqp_pattern = pattern
+        else:
+            self._osqp_prob.update(Px=P.data, Ax=A.data, q=q, u=u)
+            self._osqp_prob.warm_start(x=self._z_warm)
+
+        res = self._osqp_prob.solve()
+        if (res.info.status_val not in (1, 2)
+                or res.x is None or not np.all(np.isfinite(res.x))):
+            return None
+        self._z_warm = res.x
+        self._last_slack = float(np.max(res.x[n_du:])) if n_soft else 0.0
+        return res.x[:n_du]
+
+    def _solve_qp_hard(self, Hdb, ft, G, ht):
+        """Original hard-constrained QP (min 0.5 du' Hdb du + ft' du s.t. G du <= ht).
+
+        Used when soft_constraints=False. Can return None (infeasible), which the
+        caller treats as a fault and coasts — this is the behaviour soft
+        constraints replace.
+        """
+        if not self._use_osqp:
+            return solve_qp(Hdb, ft, G, ht, solver=self.qp_solver)
+
+        m = G.shape[0]
+        P = sparse.triu(sparse.csc_matrix(Hdb), format='csc')
+        A = sparse.csc_matrix(G)
+        pattern = (P.nnz, A.nnz, m)
+
+        if self._osqp_prob is None or pattern != self._osqp_pattern:
+            self._osqp_prob = osqp.OSQP()
+            self._osqp_prob.setup(
+                P=P, q=ft, A=A, l=np.full(m, -np.inf), u=ht,
+                verbose=False, warm_start=True, polish=False,
+                eps_abs=1e-3, eps_rel=1e-3, max_iter=4000)
+            self._osqp_pattern = pattern
+        else:
+            self._osqp_prob.update(Px=P.data, Ax=A.data, q=ft, u=ht)
+            self._osqp_prob.warm_start(x=self.du.flatten())
+
+        res = self._osqp_prob.solve()
+        if (res.info.status_val not in (1, 2)
+                or res.x is None or not np.all(np.isfinite(res.x))):
+            return None
+        return res.x
+
+    # ────────────────────────────────────��───────────────────────���───
+    #  Reference trajectory builder
+    # ─────────────────────────────────────────────────���──────────────
+    def _kappa_from_geometry(self):
+        """Per-waypoint |curvature| = |d(psi)/d(s)| from the recomputed headings.
+        Fallback when the CSV has no usable kappa column."""
+        return np.abs(np.gradient(np.unwrap(self.wp_psi), self.wp_s))
+
+    def _smooth_speed_profile(self, speed):
+        """Forward/backward accel-decel rate-limit passes over the closed loop so
+        the target profile is drivable (no instantaneous speed step at corner
+        entry). Mirrors the Frenet controller's rate_limit_closed_speed_profile."""
+        profile = np.asarray(speed, dtype=float).copy()
+        n = profile.size
+        if n < 3 or self.curvature_smoothing_passes <= 0:
+            return profile
+        accel_step = self.curvature_accel_delta * self.ds
+        decel_step = self.curvature_decel_delta * self.ds
+        if accel_step <= 0.0 or decel_step <= 0.0:
+            return profile
+        for _ in range(self.curvature_smoothing_passes):
+            for i in range(1, n):
+                profile[i] = min(profile[i], profile[i - 1] + accel_step)
+            profile[0] = min(profile[0], profile[-1] + accel_step)
+            for i in range(n - 2, -1, -1):
+                profile[i] = min(profile[i], profile[i + 1] + decel_step)
+            profile[-1] = min(profile[-1], profile[0] + decel_step)
+        return profile
+
+    def _build_speed_profile(self):
+        """Build self.wp_v_target: the per-waypoint speed the controller aims for.
+
+        v_curv = scale * sqrt(a_lat / |kappa|) is the fastest a corner of curvature
+        kappa can be taken within the a_lat grip budget. In 'cap' mode the target is
+        min(csv_speed, v_curv) — the raceline speed, never exceeding the grip limit;
+        'replace' uses v_curv alone; 'off' keeps the CSV speed. The result is
+        floored at min_ref_speed and rate-limit smoothed. Built once at load.
+        """
+        v_csv = self.wp_vx * self.speed_scale
+        floor = (self.curvature_min_speed if self.curvature_min_speed > 0.0
+                 else self.min_ref_speed)
+
+        if self.curvature_speed_mode == 'off':
+            self.wp_v_target = np.maximum(v_csv, floor)
+            if self._closed_loop:
+                self.get_logger().info('Curvature speed cap: OFF (using CSV speed)')
+            return
+
+        # curvature per waypoint (CSV column is smooth; geometry as fallback)
+        if (self.curvature_kappa_source == 'csv'
+                and self.waypoints.shape[1] > 4
+                and self.waypoints.shape[0] == self.n_waypoints):
+            kappa = np.abs(self.waypoints[:, 4])
+        else:
+            kappa = self._kappa_from_geometry()
+
+        straight = (self.curvature_straight_speed
+                    if self.curvature_straight_speed > 0.0 else 1.0e3)
+        v_curv = self.curvature_speed_scale * np.sqrt(
+            self.curvature_lateral_accel / np.maximum(kappa, self.curvature_epsilon))
+        v_curv = np.minimum(v_curv, straight)
+
+        if self.curvature_speed_mode == 'replace':
+            v_target = v_curv
+        else:  # 'cap' (default): never exceed the grip limit
+            v_target = np.minimum(v_csv, v_curv)
+
+        v_target = np.maximum(v_target, floor)
+        v_target = self._smooth_speed_profile(v_target)
+        self.wp_v_target = np.maximum(v_target, floor)
+
+        if self._closed_loop:
+            binds = int(np.sum(self.wp_v_target < v_csv - 0.05))
+            self.get_logger().info(
+                f'Curvature speed cap: mode={self.curvature_speed_mode} '
+                f'a_lat={self.curvature_lateral_accel:.1f} kappa={self.curvature_kappa_source}  '
+                f'target [{self.wp_v_target.min():.1f}, {self.wp_v_target.max():.1f}] '
+                f'mean={self.wp_v_target.mean():.2f} m/s  caps {binds}/{self.n_waypoints} '
+                f'({100.0 * binds / max(1, self.n_waypoints):.0f}%) below CSV')
+
+    def _build_reference(self, states, wp_idx, hz):
+        """Build the reference signal vector r for the MPC horizon.
+
+        r = [x_dot_ref_1, psi_ref_1, X_ref_1, Y_ref_1, ...,
+             x_dot_ref_hz, psi_ref_hz, X_ref_hz, Y_ref_hz]
+
+        Advances the reference based on predicted travel distance at each
+        step (speed * Ts), so the reference matches where the car will
+        actually be — not a fixed 1-waypoint-per-step which overshoots
+        on turns.
+        """
+        if self._closed_loop:
+            speed = max(states[0], 1.5)
+        else:
+            speed = max(states[0], self.topic_reference_speed_floor)
+        current_psi = states[2]
+
+        # Cross-track PI correction, applied as a bias on the HEADING reference.
+        # The linearized position rows carry no psi coupling (support_files
+        # state_space: the psi column of the X/Y rows is zero), so the X/Y cost
+        # can only move the predicted path through sideslip and leaves a
+        # standing lateral offset whenever the model is off — measured 0.25 m
+        # inside on the superspeedway corners, where the plant out-rotates the
+        # model by ~5%. Heading is the channel that does move the car, so the
+        # error is injected there: the P term adds authority, and the integral
+        # winds in exactly the bias a persistent mismatch needs, driving the
+        # steady-state offset to zero instead of parking at it.
+        psi_correction = 0.0
+        if self.crosstrack_kp != 0.0 or self.crosstrack_ki != 0.0:
+            psi_wp = self.wp_psi[wp_idx]
+            lat_err = (-math.sin(psi_wp) * (states[4] - self.wp_xy[wp_idx, 0])
+                       + math.cos(psi_wp) * (states[5] - self.wp_xy[wp_idx, 1]))
+            self._lat_err_int = float(np.clip(
+                self._lat_err_int + lat_err * self.Ts,
+                -self.crosstrack_int_max, self.crosstrack_int_max))
+            # lat_err > 0 means the car is LEFT of the line -> aim right.
+            psi_correction = float(np.clip(
+                -math.atan2(self.crosstrack_kp * lat_err
+                            + self.crosstrack_ki * self._lat_err_int, speed),
+                -self.crosstrack_max, self.crosstrack_max))
+
+        # Small lookahead offset so MPC sees just ahead of nearest point
+        lookahead_dist = speed * self.Ts * 2  # ~2 timesteps ahead
+        lookahead_indices = max(1, int(round(lookahead_dist / self.ds)))
+
+        # Distance the car travels per MPC step
+        dist_per_step = speed * self.Ts
+        # How many waypoint indices that corresponds to
+        indices_per_step = dist_per_step / self.ds
+
+        r = np.zeros(self.outputs * hz)
+        for k in range(hz):
+            # Advance proportional to predicted travel distance
+            advance = lookahead_indices + k * indices_per_step
+            adv = wp_idx + int(round(advance))
+            # Closed lap wraps; an open horizon clamps at its last point.
+            idx = (adv % self.n_waypoints if self._closed_loop
+                   else min(adv, self.n_waypoints - 1))
+            ref_vx = self.wp_v_target[idx]   # grip-capped target (see _build_speed_profile)
+            ref_psi = self.wp_psi[idx]
+
+            # Adjust psi reference to be close to current psi (avoid 2*pi jumps)
+            while ref_psi - current_psi > np.pi:
+                ref_psi -= 2.0 * np.pi
+            while ref_psi - current_psi < -np.pi:
+                ref_psi += 2.0 * np.pi
+
+            r[self.outputs * k + 0] = ref_vx      # x_dot ref
+            r[self.outputs * k + 1] = ref_psi + psi_correction   # psi ref
+            r[self.outputs * k + 2] = self.wp_xy[idx, 0]  # X ref
+            r[self.outputs * k + 3] = self.wp_xy[idx, 1]  # Y ref
+
+        return r
+
+    def _lookahead_ref_speed(self, wp_idx, v):
+        """Brake-aware feedforward speed target.
+
+        Scans the profiled reference speed over a braking-distance window ahead
+        of the car and returns the highest speed that can still be decelerated
+        (at speed_lookahead_decel) down to every upcoming reference point in
+        time. This keeps the car fast on straights but starts braking early
+        enough for corners, instead of tracking the instantaneous point speed
+        (which dropped only once the car was already in the corner → spin-out).
+        """
+        # Window length: distance covered in lookahead_time at the greater of
+        # current and profiled speed, converted to waypoint indices.
+        horizon_m = max(v, 1.0) * self.speed_lookahead_time
+        span = int(max(1, round(horizon_m / self.ds)))
+        idxs = ((wp_idx + np.arange(span)) % self.n_waypoints if self._closed_loop
+                else np.minimum(wp_idx + np.arange(span), self.n_waypoints - 1))
+        v_prof = self.wp_v_target[idxs]                     # upcoming grip-capped targets
+        dist = np.arange(span) * self.ds                    # distance to each point
+        # Max speed now that still allows braking to v_prof[i] over dist[i]:
+        #   v_now^2 <= v_prof[i]^2 + 2 * a_brake * dist[i]
+        v_allow = np.sqrt(v_prof ** 2 + 2.0 * self.speed_lookahead_decel * dist)
+        return max(float(v_allow.min()), self.min_ref_speed)
+
+    # ────────────────────��──────────────────────────��────────────────
+    #  Lap timing
+    # ─────────────────────────────────────────────��──────────────────
+    def _update_lap_timing(self, wp_idx):
+        # Lap counting only makes sense on a closed lap; an open local horizon has
+        # no start/finish line and wp_idx resets each message.
+        if not self._closed_loop:
+            return
+        if self.lap_start_time is None:
+            self.lap_start_time = time.perf_counter()
+
+        half = self.n_waypoints // 2
+        if half * 0.4 < wp_idx < half * 1.6:
+            self.lap_crossed_half = True
+
+        if (self.lap_crossed_half
+                and wp_idx < self.n_waypoints * 0.05
+                and self.prev_wp_idx > self.n_waypoints * 0.9):
+            lap_time = time.perf_counter() - self.lap_start_time
+            self.get_logger().info(
+                f'========== LAP {self.nr_laps} FINISHED  |  time: {lap_time:.2f}s ==========')
+            self.nr_laps += 1
+            self.lap_start_time = time.perf_counter()
+            self.lap_crossed_half = False
+
+        self.prev_wp_idx = wp_idx
+
+    # ────────────────────────────────────────────────────────────────
+    #  Per-run CSV debug logging
+    # ────────────────────────────────────────────────────────────────
+    LOG_COLUMNS = [
+        'wall_t', 'sim_t', 'iter', 'lap', 'wp_idx', 'status',
+        'state_received', 'ref_received', 'n_waypoints', 'ref_reject_count',
+        # measured state
+        'x_dot', 'y_dot', 'psi', 'psi_dot', 'X', 'Y', 'slip_deg',
+        # lidar wall clearance from /scan
+        'scan_front_m', 'scan_left_m', 'scan_right_m',
+        'scan_front_min_m', 'scan_left_min_m', 'scan_right_min_m',
+        'scan_min_m', 'scan_age_s',
+        'obstacle_front_m', 'obstacle_x_m', 'obstacle_y_m',
+        'obstacle_bearing_deg',
+        'wall_clearance_m', 'wall_speed_cap', 'wall_limit_active',
+        'wall_limit_hard', 'wall_source',
+        # reference (first horizon step) + the reference point the car is on
+        'ref_vx', 'ref_psi', 'ref_X', 'ref_Y',
+        # tracking errors
+        'err_v', 'err_psi_deg', 'err_X', 'err_Y',
+        'pos_err', 'lat_err', 'lon_err',
+        # squared errors + running mean-square errors
+        'sq_err_v', 'sq_pos_err', 'mse_v', 'mse_pos',
+        # control
+        'steer_deg', 'accel', 'du_steer', 'du_accel',
+        'speed_cmd', 'ref_speed_ff', 'mpc_speed', 'speed_ff_blend_used',
+        # timing (ms)
+        't_build_ms', 't_solve_ms',
+        # full horizons as space-separated scalar series
+        'ref_horizon_vx', 'ref_horizon_psi', 'ref_horizon_X', 'ref_horizon_Y',
+        'pred_horizon_vx', 'pred_horizon_psi', 'pred_horizon_X', 'pred_horizon_Y',
+        'guard_free_m',       # lidar_guard free distance (topic mode, nan if unused)
+    ]
+
+    def _init_csv_log(self):
+        """Open a fresh timestamped CSV for this run and write the header."""
+        self._csv_file = None
+        self._csv_writer = None
+        self._log_path = None
+        self._sse_v = 0.0        # accumulated squared speed error
+        self._sse_pos = 0.0      # accumulated squared position error
+        self._n_log = 0          # number of valid tracking rows
+        self._log_flush_ctr = 0
+        self._t0 = time.perf_counter()
+
+        if not self.enable_csv_log:
+            self.get_logger().info('CSV logging disabled (enable_csv_log=false)')
+            return
+        try:
+            os.makedirs(self.log_dir, exist_ok=True)
+            # Single fixed file, overwritten each run, so it's always the same
+            # path to read back (no timestamp hunting).
+            self._log_path = os.path.join(self.log_dir, 'run.csv')
+            self._csv_file = open(self._log_path, 'w', newline='')
+            self._csv_writer = csv.writer(self._csv_file)
+            self._csv_writer.writerow(self.LOG_COLUMNS)
+            self._csv_file.flush()
+            self.get_logger().info(f'Logging run data to {self._log_path}')
+        except Exception as e:
+            self.get_logger().warn(f'Failed to open CSV log: {e}')
+            self._csv_file = None
+            self._csv_writer = None
+
+    def _log_row(self, status, states, wp_idx=-1, r=None, pred_aug=None,
+                 speed_cmd=float('nan'), ref_speed=float('nan'),
+                 mpc_speed=float('nan'), t_build=float('nan'),
+                 t_solve=float('nan')):
+        """Append one control-tick row. Missing fields are logged as nan.
+
+        `status` is 'ok' on the normal path, or 'startup' / 'qp_infeasible' /
+        'qp_exception' on the early-return paths so failures are visible.
+        """
+        if self._csv_writer is None:
+            return
+        if self._guard_status:          # set by the _publish_drive just before
+            status = self._guard_status
+        nan = float('nan')
+        x_dot, y_dot, psi, psi_dot, X, Y = (float(v) for v in states)
+        slip = math.degrees(math.atan2(y_dot, x_dot)) if abs(x_dot) > 1e-3 else 0.0
+        scan = self._scan_metrics_for_log()
+
+        if r is not None:
+            ref_vx, ref_psi, ref_X, ref_Y = (float(r[i]) for i in range(4))
+            err_v = x_dot - ref_vx
+            err_psi = math.atan2(math.sin(psi - ref_psi), math.cos(psi - ref_psi))
+            err_X = X - ref_X
+            err_Y = Y - ref_Y
+            pos_err = math.hypot(err_X, err_Y)
+            # cross-track (lateral) and along-track error in the reference frame
+            lat_err = -math.sin(ref_psi) * err_X + math.cos(ref_psi) * err_Y
+            lon_err = math.cos(ref_psi) * err_X + math.sin(ref_psi) * err_Y
+            sq_err_v = err_v * err_v
+            sq_pos = pos_err * pos_err
+            # only accumulate MSE on rows where the car is actually tracking
+            if status == 'ok':
+                self._sse_v += sq_err_v
+                self._sse_pos += sq_pos
+                self._n_log += 1
+        else:
+            ref_vx = ref_psi = ref_X = ref_Y = nan
+            err_v = err_psi = err_X = err_Y = nan
+            pos_err = lat_err = lon_err = sq_err_v = sq_pos = nan
+
+        ref_horizon_vx = ref_horizon_psi = ref_horizon_X = ref_horizon_Y = ''
+        pred_horizon_vx = pred_horizon_psi = pred_horizon_X = pred_horizon_Y = ''
+        if r is not None:
+            ref_horizon_vx = self._format_horizon_series(r, 0, self.outputs)
+            ref_horizon_psi = self._format_horizon_series(r, 1, self.outputs)
+            ref_horizon_X = self._format_horizon_series(r, 2, self.outputs)
+            ref_horizon_Y = self._format_horizon_series(r, 3, self.outputs)
+        if pred_aug is not None:
+            n_aug = 6 + self.inputs
+            pred_horizon_vx = self._format_horizon_series(pred_aug, 0, n_aug)
+            pred_horizon_psi = self._format_horizon_series(pred_aug, 2, n_aug)
+            pred_horizon_X = self._format_horizon_series(pred_aug, 4, n_aug)
+            pred_horizon_Y = self._format_horizon_series(pred_aug, 5, n_aug)
+
+        n = max(self._n_log, 1)
+        mse_v = self._sse_v / n
+        mse_pos = self._sse_pos / n
+
+        def R(x, p=4):
+            return round(x, p)
+
+        row = [
+            R(time.perf_counter() - self._t0), R(self.get_clock().now().nanoseconds * 1e-9),
+            self.iteration, self.nr_laps, wp_idx, status,
+            int(self.state_received), int(self._ref_received),
+            self.n_waypoints, self._ref_reject,
+            R(x_dot), R(y_dot), R(psi), R(psi_dot), R(X), R(Y), R(slip, 3),
+            R(scan['front']), R(scan['left']), R(scan['right']),
+            R(scan['front_min']), R(scan['left_min']), R(scan['right_min']),
+            R(scan['min']), R(scan['age']),
+            R(scan['obstacle_front']), R(scan['obstacle_x']), R(scan['obstacle_y']),
+            R(math.degrees(scan['obstacle_bearing'])
+              if math.isfinite(scan['obstacle_bearing']) else nan, 3),
+            R(self._last_wall_clearance), R(self._last_wall_speed_cap),
+            int(self._last_wall_limit_active), int(self._last_wall_limit_hard),
+            self._last_wall_source,
+            R(ref_vx), R(ref_psi), R(ref_X), R(ref_Y),
+            R(err_v), R(math.degrees(err_psi) if r is not None else nan, 3),
+            R(err_X), R(err_Y), R(pos_err), R(lat_err), R(lon_err),
+            R(sq_err_v), R(sq_pos), R(mse_v), R(mse_pos),
+            R(math.degrees(self.U1), 3), R(self.U2),
+            R(float(self.du[0][0])), R(float(self.du[1][0])),
+            R(speed_cmd), R(ref_speed), R(mpc_speed),
+            R(self._last_speed_ff_blend, 3),
+            R(t_build * 1e3, 3), R(t_solve * 1e3, 3),
+            ref_horizon_vx, ref_horizon_psi, ref_horizon_X, ref_horizon_Y,
+            pred_horizon_vx, pred_horizon_psi, pred_horizon_X, pred_horizon_Y,
+            R(self._free if self._free is not None else nan),
+        ]
+        self._csv_writer.writerow(row)
+        # flush every ~0.4 s so a Ctrl-C / crash keeps almost all the data
+        self._log_flush_ctr += 1
+        if self._log_flush_ctr >= 20:
+            self._csv_file.flush()
+            self._log_flush_ctr = 0
+
+    @staticmethod
+    def _format_horizon_series(values, offset, stride, precision=4):
+        arr = np.asarray(values).reshape(-1)
+        return ' '.join(
+            f'{float(arr[i]):.{precision}f}'
+            for i in range(offset, arr.size, stride))
+
+    def _close_log(self):
+        """Flush + close the CSV and print a run summary."""
+        if getattr(self, '_csv_file', None) is None:
+            return
+        try:
+            self._csv_file.flush()
+            self._csv_file.close()
+            n = max(self._n_log, 1)
+            self.get_logger().info(
+                f'Closed log {self._log_path}  |  rows={self.iteration}  '
+                f'RMSE_v={(self._sse_v / n) ** 0.5:.3f} m/s  '
+                f'RMSE_pos={(self._sse_pos / n) ** 0.5:.3f} m')
+        except Exception:
+            pass
+        self._csv_file = None
+        self._csv_writer = None
+
+    # ────────────────────────────────────────────────────────────────
+    #  Publishing helpers
+    # ────────────────────────────────────────────────────────────────
+    def _safe_publish(self, publisher, msg):
+        if not rclpy.ok():
+            return False
+        try:
+            publisher.publish(msg)
+            return True
+        except RCLError:
+            # During Ctrl-C / launch shutdown, rclpy can invalidate the context
+            # while a timer callback is still unwinding. Treat that as normal
+            # teardown instead of crashing the process.
+            return False
+
+    def _publish_drive(self, steering, speed):
+        # Lidar emergency brake (topic mode, topic_free_topic set): the same cap as
+        # lane_assist's pure-pursuit follower, applied to EVERY command path here.
+        # A silent guard means stop, never drive blind.
+        self._guard_status = ''
+        if self.topic_free_topic:
+            now = self.get_clock().now().nanoseconds * 1e-9
+            if self._free_t is None or now - self._free_t > self.topic_free_timeout:
+                speed, self._guard_status = 0.0, 'guard_stale'
+            else:
+                v_free = math.sqrt(2.0 * self.topic_brake_decel
+                                   * max(0.0, self._free - self.topic_stop_margin))
+                if v_free < speed:
+                    if v_free > self.topic_stop_speed_thresh:
+                        speed, self._guard_status = v_free, 'guard_brake'
+                    else:
+                        speed, self._guard_status = 0.0, 'guard_stop'
+        msg = AckermannDriveStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.drive.steering_angle = float(steering)
+        msg.drive.speed = float(speed)
+        self._safe_publish(self.drive_pub, msg)
+
+    def _publish_ref_marker(self, r, hz):
+        m = Marker()
+        # Topic mode tracks an ego-centric reference, so the points are in the
+        # car's frame; in CSV mode they are global.
+        m.header.frame_id = ('ego_racecar/base_link'
+                             if self.ref_source == 'topic' else 'map')
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.ns = 'lpv_mpc_ref_horizon'
+        m.action = Marker.ADD
+        m.type = Marker.LINE_STRIP
+        m.pose.orientation.w = 1.0
+        m.color.b = 0.9
+        m.color.a = 1.0
+        m.scale.x = 0.06
+        m.id = 1
+        for k in range(hz):
+            m.points.append(Point(
+                x=float(r[self.outputs * k + 2]),
+                y=float(r[self.outputs * k + 3]),
+                z=0.2))
+        self._safe_publish(self.vis_ref_pub, m)
+
+    def _publish_pred_marker(self, pred_aug, hz):
+        m = Marker()
+        m.header.frame_id = ('ego_racecar/base_link'
+                             if self.ref_source == 'topic' else 'map')
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.ns = 'lpv_mpc_predicted_horizon'
+        m.action = Marker.ADD
+        m.type = Marker.LINE_STRIP
+        m.pose.orientation.w = 1.0
+        m.color.r = 1.0
+        m.color.g = 0.35
+        m.color.a = 1.0
+        m.scale.x = 0.07
+        m.id = 2
+
+        n_aug = 6 + self.inputs
+        for k in range(hz):
+            base = n_aug * k
+            m.points.append(Point(
+                x=float(pred_aug[base + 4]),
+                y=float(pred_aug[base + 5]),
+                z=0.28))
+        self._safe_publish(self.vis_pred_pub, m)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = LPVMPCNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Flush + close the CSV log so Ctrl-C runs are still fully saved.
+        node._close_log()
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
