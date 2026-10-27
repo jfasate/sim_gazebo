@@ -48,6 +48,9 @@
   <xacro:arg name="lidar3d_rate"       default="10"/>
   <xacro:arg name="camera_mount_z"     default="0.40"/>
   <xacro:arg name="camera_pitch"       default="0.0463"/>
+  <xacro:arg name="camera_image_width"  default="640"/>
+  <xacro:arg name="camera_image_height" default="480"/>
+  <xacro:arg name="camera_rate"         default="15"/>
   <xacro:property name="camera_mount_z" value="$(arg camera_mount_z)"/>
   <xacro:property name="camera_pitch"   value="$(arg camera_pitch)"/>
 
@@ -452,12 +455,12 @@
     <sensor name="camera_rgb" type="camera">
       <always_on>true</always_on>
       <visualize>true</visualize>
-      <update_rate>15</update_rate>
+      <update_rate>$(arg camera_rate)</update_rate>
       <camera>
         <horizontal_fov>1.2112</horizontal_fov>
         <image>
-          <width>640</width>
-          <height>480</height>
+          <width>$(arg camera_image_width)</width>
+          <height>$(arg camera_image_height)</height>
           <format>R8G8B8</format>
         </image>
         <clip>

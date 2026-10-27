@@ -48,6 +48,7 @@ _FALLBACK_DEFAULTS = {
     'require_clean_runtime': True, 'enable_lidar2d': True, 'enable_lidar3d': True,
     'enable_camera_d435': True, 'enable_imu': True,
     'camera_mount_z': 0.40, 'camera_pitch': 0.0463,
+    'camera_image_width': 640, 'camera_image_height': 480, 'camera_rate': 15,
 }
 
 
@@ -288,6 +289,9 @@ def launch_setup(context, *args, **kwargs):
         'camera_mount_z:='
         + LaunchConfiguration('camera_mount_z').perform(context),
         'camera_pitch:=' + LaunchConfiguration('camera_pitch').perform(context),
+        'camera_image_width:=' + LaunchConfiguration('camera_image_width').perform(context),
+        'camera_image_height:=' + LaunchConfiguration('camera_image_height').perform(context),
+        'camera_rate:=' + LaunchConfiguration('camera_rate').perform(context),
     ]).decode('utf-8')
     filtered_ld = _filtered_ld()
 
@@ -320,7 +324,8 @@ def launch_setup(context, *args, **kwargs):
                           'spawn_z': float(z),
                           'vibration_pitch_deg': float(LaunchConfiguration('vibration_pitch_deg').perform(context)),
                           'vibration_roll_deg': float(LaunchConfiguration('vibration_roll_deg').perform(context)),
-                          'vibration_freq_hz': float(LaunchConfiguration('vibration_freq_hz').perform(context))}],
+                          'vibration_freq_hz': float(LaunchConfiguration('vibration_freq_hz').perform(context)),
+                          'vibration_heave_mm': float(LaunchConfiguration('vibration_heave_mm').perform(context))}],
              condition=IfCondition(LaunchConfiguration('spawn_car'))),
         Node(package='f1tenth_gym_gazebo', executable='map_publisher',
              name='map_publisher', output='screen',
@@ -377,6 +382,12 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_pitch', default_value=d['camera_pitch'],
                               description='Camera down-pitch [rad]. '
                                           'lane_assist cam_pitch must match.'),
+        DeclareLaunchArgument('camera_image_width', default_value=d['camera_image_width'],
+                              description='RGB image width [px] (hfov fixed at 69.4 deg).'),
+        DeclareLaunchArgument('camera_image_height', default_value=d['camera_image_height'],
+                              description='RGB image height [px]; 360 = the real D435i 16:9 colour stream.'),
+        DeclareLaunchArgument('camera_rate', default_value=d['camera_rate'],
+                              description='RGB frame rate [Hz]; the D435i streams 30.'),
         DeclareLaunchArgument('x', default_value='',
                               description='override spawn X (default: map spawn)'),
         DeclareLaunchArgument('y', default_value=''),
@@ -387,7 +398,9 @@ def generate_launch_description():
         DeclareLaunchArgument('vibration_roll_deg', default_value='0.0',
                               description='Chassis roll vibration amplitude [deg].'),
         DeclareLaunchArgument('vibration_freq_hz', default_value='2.0',
-                              description='Vibration base frequency [Hz].'),
+                              description='Vibration base frequency [Hz] (pose written at 100 Hz: up to ~30 Hz).'),
+        DeclareLaunchArgument('vibration_heave_mm', default_value='0.0',
+                              description='Chassis heave (vertical bounce) amplitude [mm].'),
         DeclareLaunchArgument('yaw', default_value=''),
         set_model_path,
         fix_snap_ld,

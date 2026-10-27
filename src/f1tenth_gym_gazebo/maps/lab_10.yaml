@@ -1,0 +1,7 @@
+image: lab_10.png
+mode: scale
+resolution: 0.050000
+origin: [-12.989399, -15.441479, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196

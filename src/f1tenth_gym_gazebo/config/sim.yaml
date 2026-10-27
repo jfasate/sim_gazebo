@@ -24,6 +24,11 @@ enable_imu: true
 # lane_assist_params.yaml cam_height / cam_pitch MUST match these.
 camera_mount_z: 0.40
 camera_pitch: 0.0463
+# RGB image size; the hfov stays 69.4 deg. 640x480 = road models. The real D435i
+# colour stream is 16:9 (69 x 42 deg): the lab runs use 640x360.
+camera_image_width: 640
+camera_image_height: 480
+camera_rate: 15
 
 # /clock publish rate [Hz] for gzserver. gazebo_ros_init defaults this to 10,
 # which throttles every use_sim_time node down with it (plant 100 Hz, MPC

@@ -1,0 +1,821 @@
+<?xml version="1.0" ?>
+<sdf version='1.7'>
+  <world name='default'>
+    <!-- gazebo_ros_state: provides /set_entity_state + /get_entity_state and
+         publishes /model_states, /link_states. This is a WorldPlugin and MUST
+         be declared here — loading it via `gzserver -s` fails with "incorrect
+         plugin type", which silently disables the co-sim (car frozen in
+         Gazebo). Keep it in the world, not on the gzserver command line. -->
+    <plugin name='gazebo_ros_state' filename='libgazebo_ros_state.so'>
+      <ros>
+        <namespace>/</namespace>
+      </ros>
+      <update_rate>1000.0</update_rate>
+    </plugin>
+
+    <light name='sun' type='directional'>
+      <cast_shadows>1</cast_shadows>
+      <pose>0 0 10 0 -0 0</pose>
+      <diffuse>0.34 0.34 0.33 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>0.05 0.02 -1.0</direction>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+    <model name='ground_plane'>
+      <static>1</static>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>100</mu>
+                <mu2>50</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+    </model>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <physics type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>0.74 0.74 0.72 1</ambient>
+      <background>0.80 0.77 0.68 1</background>
+      <shadows>1</shadows>
+    </scene>
+    <audio>
+      <device>default</device>
+    </audio>
+    <wind/>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <latitude_deg>0</latitude_deg>
+      <longitude_deg>0</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+    <model name='lab_19'>
+    <static>1</static>
+    <pose>0 0 0.001 0 0 0</pose>
+    <link name='floor'>
+      <visual name='floor_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><mesh><uri>model://lab_19/meshes/floor.obj</uri></mesh></geometry>
+      </visual>
+    </link>
+    <link name='ducts'>
+      <visual name='ducts_visual'>
+        <geometry><mesh><uri>model://lab_19/meshes/ducts.obj</uri></mesh></geometry>
+      </visual>
+      <collision name='ducts_collision'>
+        <geometry><mesh><uri>model://lab_19/meshes/ducts.obj</uri></mesh></geometry>
+      </collision>
+    </link>
+    <link name='wall_0'>
+      <pose>5.798 10.311 1.350 0 0 0.000</pose>
+      <visual name='wall_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>16.623 0.100 2.700</size></box></geometry>
+        <material><ambient>0.80 0.77 0.68 1</ambient><diffuse>0.80 0.77 0.68 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='wall_1'>
+      <pose>5.798 -7.554 1.350 0 0 0.000</pose>
+      <visual name='wall_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>16.623 0.100 2.700</size></box></geometry>
+        <material><ambient>0.80 0.77 0.68 1</ambient><diffuse>0.80 0.77 0.68 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='wall_2'>
+      <pose>-2.513 1.379 1.350 0 0 0.000</pose>
+      <visual name='wall_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.100 17.864 2.700</size></box></geometry>
+        <material><ambient>0.80 0.77 0.68 1</ambient><diffuse>0.80 0.77 0.68 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='wall_3'>
+      <pose>14.110 1.379 1.350 0 0 0.000</pose>
+      <visual name='wall_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.100 17.864 2.700</size></box></geometry>
+        <material><ambient>0.80 0.77 0.68 1</ambient><diffuse>0.80 0.77 0.68 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='ceiling'>
+      <pose>5.798 1.379 2.750 0 0 0.000</pose>
+      <visual name='ceiling_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>16.623 17.864 0.100</size></box></geometry>
+        <material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.85 0.85 0.82 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='panel_0_0'>
+      <pose>-1.013 -6.054 2.690 0 0 0.000</pose>
+      <visual name='panel_0_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_0_1'>
+      <pose>-1.013 -3.654 2.690 0 0 0.000</pose>
+      <visual name='panel_0_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_0_2'>
+      <pose>-1.013 -1.254 2.690 0 0 0.000</pose>
+      <visual name='panel_0_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_0_3'>
+      <pose>-1.013 1.146 2.690 0 0 0.000</pose>
+      <visual name='panel_0_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_0_4'>
+      <pose>-1.013 3.546 2.690 0 0 0.000</pose>
+      <visual name='panel_0_4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_0_5'>
+      <pose>-1.013 5.946 2.690 0 0 0.000</pose>
+      <visual name='panel_0_5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_0_6'>
+      <pose>-1.013 8.346 2.690 0 0 0.000</pose>
+      <visual name='panel_0_6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_0'>
+      <pose>1.387 -6.054 2.690 0 0 0.000</pose>
+      <visual name='panel_1_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_1'>
+      <pose>1.387 -3.654 2.690 0 0 0.000</pose>
+      <visual name='panel_1_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_2'>
+      <pose>1.387 -1.254 2.690 0 0 0.000</pose>
+      <visual name='panel_1_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_3'>
+      <pose>1.387 1.146 2.690 0 0 0.000</pose>
+      <visual name='panel_1_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_4'>
+      <pose>1.387 3.546 2.690 0 0 0.000</pose>
+      <visual name='panel_1_4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_5'>
+      <pose>1.387 5.946 2.690 0 0 0.000</pose>
+      <visual name='panel_1_5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_1_6'>
+      <pose>1.387 8.346 2.690 0 0 0.000</pose>
+      <visual name='panel_1_6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_0'>
+      <pose>3.787 -6.054 2.690 0 0 0.000</pose>
+      <visual name='panel_2_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_1'>
+      <pose>3.787 -3.654 2.690 0 0 0.000</pose>
+      <visual name='panel_2_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_2'>
+      <pose>3.787 -1.254 2.690 0 0 0.000</pose>
+      <visual name='panel_2_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_3'>
+      <pose>3.787 1.146 2.690 0 0 0.000</pose>
+      <visual name='panel_2_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_4'>
+      <pose>3.787 3.546 2.690 0 0 0.000</pose>
+      <visual name='panel_2_4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_5'>
+      <pose>3.787 5.946 2.690 0 0 0.000</pose>
+      <visual name='panel_2_5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_2_6'>
+      <pose>3.787 8.346 2.690 0 0 0.000</pose>
+      <visual name='panel_2_6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_0'>
+      <pose>6.187 -6.054 2.690 0 0 0.000</pose>
+      <visual name='panel_3_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_1'>
+      <pose>6.187 -3.654 2.690 0 0 0.000</pose>
+      <visual name='panel_3_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_2'>
+      <pose>6.187 -1.254 2.690 0 0 0.000</pose>
+      <visual name='panel_3_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_3'>
+      <pose>6.187 1.146 2.690 0 0 0.000</pose>
+      <visual name='panel_3_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_4'>
+      <pose>6.187 3.546 2.690 0 0 0.000</pose>
+      <visual name='panel_3_4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_5'>
+      <pose>6.187 5.946 2.690 0 0 0.000</pose>
+      <visual name='panel_3_5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_3_6'>
+      <pose>6.187 8.346 2.690 0 0 0.000</pose>
+      <visual name='panel_3_6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_0'>
+      <pose>8.587 -6.054 2.690 0 0 0.000</pose>
+      <visual name='panel_4_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_1'>
+      <pose>8.587 -3.654 2.690 0 0 0.000</pose>
+      <visual name='panel_4_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_2'>
+      <pose>8.587 -1.254 2.690 0 0 0.000</pose>
+      <visual name='panel_4_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_3'>
+      <pose>8.587 1.146 2.690 0 0 0.000</pose>
+      <visual name='panel_4_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_4'>
+      <pose>8.587 3.546 2.690 0 0 0.000</pose>
+      <visual name='panel_4_4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_5'>
+      <pose>8.587 5.946 2.690 0 0 0.000</pose>
+      <visual name='panel_4_5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_4_6'>
+      <pose>8.587 8.346 2.690 0 0 0.000</pose>
+      <visual name='panel_4_6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_0'>
+      <pose>10.987 -6.054 2.690 0 0 0.000</pose>
+      <visual name='panel_5_0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_1'>
+      <pose>10.987 -3.654 2.690 0 0 0.000</pose>
+      <visual name='panel_5_1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_2'>
+      <pose>10.987 -1.254 2.690 0 0 0.000</pose>
+      <visual name='panel_5_2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_3'>
+      <pose>10.987 1.146 2.690 0 0 0.000</pose>
+      <visual name='panel_5_3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_4'>
+      <pose>10.987 3.546 2.690 0 0 0.000</pose>
+      <visual name='panel_5_4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_5'>
+      <pose>10.987 5.946 2.690 0 0 0.000</pose>
+      <visual name='panel_5_5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='panel_5_6'>
+      <pose>10.987 8.346 2.690 0 0 0.000</pose>
+      <visual name='panel_5_6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.200 0.600 0.020</size></box></geometry>
+        <material><ambient>1.00 1.00 1.00 1</ambient><diffuse>1.00 1.00 1.00 1</diffuse><emissive>1.00 1.00 1.00 1</emissive></material>
+      </visual>
+    </link>
+    <link name='p0'>
+      <pose>-1.131 9.876 0.375 0 0 0.000</pose>
+      <visual name='p0_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.500 0.750 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p1'>
+      <pose>0.972 9.876 0.375 0 0 0.000</pose>
+      <visual name='p1_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.500 0.750 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p2'>
+      <pose>3.756 10.001 0.225 0 0 0.000</pose>
+      <visual name='p2_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.600 0.500 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p3'>
+      <pose>3.756 10.001 0.675 0 0 0.000</pose>
+      <visual name='p3_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.600 0.500 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p4'>
+      <pose>3.756 10.001 1.125 0 0 0.000</pose>
+      <visual name='p4_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.600 0.500 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p5'>
+      <pose>5.117 10.226 0.375 0 0 0.000</pose>
+      <visual name='p5_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.800 0.050 0.750</size></box></geometry>
+        <material><ambient>0.93 0.93 0.92 1</ambient><diffuse>0.93 0.93 0.92 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p6'>
+      <pose>8.387 10.226 0.375 0 0 0.000</pose>
+      <visual name='p6_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.800 0.050 0.750</size></box></geometry>
+        <material><ambient>0.93 0.93 0.92 1</ambient><diffuse>0.93 0.93 0.92 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p7'>
+      <pose>11.404 9.876 0.375 0 0 0.000</pose>
+      <visual name='p7_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.500 0.750 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p8'>
+      <pose>13.675 -3.840 0.375 0 0 0.000</pose>
+      <visual name='p8_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.750 1.500 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p9'>
+      <pose>13.675 -1.098 0.375 0 0 0.000</pose>
+      <visual name='p9_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.750 1.500 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p10'>
+      <pose>13.825 0.992 0.925 0 0 0.000</pose>
+      <visual name='p10_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p11'>
+      <pose>13.825 1.302 0.925 0 0 0.000</pose>
+      <visual name='p11_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p12'>
+      <pose>13.825 1.612 0.925 0 0 0.000</pose>
+      <visual name='p12_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p13'>
+      <pose>13.825 1.922 0.925 0 0 0.000</pose>
+      <visual name='p13_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p14'>
+      <pose>13.825 2.232 0.925 0 0 0.000</pose>
+      <visual name='p14_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p15'>
+      <pose>13.825 2.542 0.925 0 0 0.000</pose>
+      <visual name='p15_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p16'>
+      <pose>14.025 5.284 0.375 0 0 0.000</pose>
+      <visual name='p16_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.050 1.800 0.750</size></box></geometry>
+        <material><ambient>0.93 0.93 0.92 1</ambient><diffuse>0.93 0.93 0.92 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p17'>
+      <pose>13.675 8.144 0.375 0 0 0.000</pose>
+      <visual name='p17_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.750 1.500 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p18'>
+      <pose>0.221 -7.244 0.650 0 0 0.000</pose>
+      <visual name='p18_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.900 0.500 1.300</size></box></geometry>
+        <material><ambient>0.25 0.33 0.36 1</ambient><diffuse>0.25 0.33 0.36 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p19'>
+      <pose>1.745 -7.119 0.375 0 0 0.000</pose>
+      <visual name='p19_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.500 0.750 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p20'>
+      <pose>4.580 -7.119 0.375 0 0 0.000</pose>
+      <visual name='p20_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>1.500 0.750 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p21'>
+      <pose>6.852 -7.244 0.650 0 0 0.000</pose>
+      <visual name='p21_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.900 0.500 1.300</size></box></geometry>
+        <material><ambient>0.25 0.33 0.36 1</ambient><diffuse>0.25 0.33 0.36 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p22'>
+      <pose>8.366 -7.244 0.650 0 0 0.000</pose>
+      <visual name='p22_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.900 0.500 1.300</size></box></geometry>
+        <material><ambient>0.25 0.33 0.36 1</ambient><diffuse>0.25 0.33 0.36 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p23'>
+      <pose>10.797 -7.244 0.225 0 0 0.000</pose>
+      <visual name='p23_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.600 0.500 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p24'>
+      <pose>10.797 -7.244 0.675 0 0 0.000</pose>
+      <visual name='p24_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.600 0.500 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p25'>
+      <pose>12.419 -7.244 0.225 0 0 0.000</pose>
+      <visual name='p25_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.600 0.500 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p26'>
+      <pose>-2.228 -6.266 0.925 0 0 0.000</pose>
+      <visual name='p26_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p27'>
+      <pose>-2.228 -5.956 0.925 0 0 0.000</pose>
+      <visual name='p27_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p28'>
+      <pose>-2.228 -5.646 0.925 0 0 0.000</pose>
+      <visual name='p28_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p29'>
+      <pose>-2.228 -5.336 0.925 0 0 0.000</pose>
+      <visual name='p29_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p30'>
+      <pose>-2.228 -5.026 0.925 0 0 0.000</pose>
+      <visual name='p30_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p31'>
+      <pose>-2.228 -4.716 0.925 0 0 0.000</pose>
+      <visual name='p31_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p32'>
+      <pose>-2.228 -4.406 0.925 0 0 0.000</pose>
+      <visual name='p32_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p33'>
+      <pose>-2.228 -3.014 0.925 0 0 0.000</pose>
+      <visual name='p33_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p34'>
+      <pose>-2.228 -2.704 0.925 0 0 0.000</pose>
+      <visual name='p34_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p35'>
+      <pose>-2.228 -2.394 0.925 0 0 0.000</pose>
+      <visual name='p35_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p36'>
+      <pose>-2.228 -2.084 0.925 0 0 0.000</pose>
+      <visual name='p36_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p37'>
+      <pose>-2.228 -1.774 0.925 0 0 0.000</pose>
+      <visual name='p37_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.450 0.300 1.850</size></box></geometry>
+        <material><ambient>0.55 0.57 0.58 1</ambient><diffuse>0.55 0.57 0.58 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p38'>
+      <pose>-2.078 -0.082 0.375 0 0 0.000</pose>
+      <visual name='p38_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.750 1.500 0.750</size></box></geometry>
+        <material><ambient>0.32 0.32 0.33 1</ambient><diffuse>0.32 0.32 0.33 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p39'>
+      <pose>-2.428 2.721 0.375 0 0 0.000</pose>
+      <visual name='p39_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.050 1.800 0.750</size></box></geometry>
+        <material><ambient>0.93 0.93 0.92 1</ambient><diffuse>0.93 0.93 0.92 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p40'>
+      <pose>-2.428 5.516 0.375 0 0 0.000</pose>
+      <visual name='p40_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.050 1.800 0.750</size></box></geometry>
+        <material><ambient>0.93 0.93 0.92 1</ambient><diffuse>0.93 0.93 0.92 1</diffuse></material>
+      </visual>
+    </link>
+    <link name='p41'>
+      <pose>-2.203 8.074 0.225 0 0 0.000</pose>
+      <visual name='p41_visual'>
+        <cast_shadows>0</cast_shadows>
+        <geometry><box><size>0.500 0.600 0.450</size></box></geometry>
+        <material><ambient>0.62 0.45 0.28 1</ambient><diffuse>0.62 0.45 0.28 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+  </world>
+</sdf>

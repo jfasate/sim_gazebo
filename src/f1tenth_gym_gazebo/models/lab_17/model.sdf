@@ -1,0 +1,11 @@
+<?xml version='1.0'?>
+<sdf version='1.7'>
+  <model name='lab_17'>
+    <static>1</static>
+    <link name='floor'>
+      <visual name='floor_visual'>
+        <geometry><mesh><uri>model://lab_17/meshes/floor.obj</uri></mesh></geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>

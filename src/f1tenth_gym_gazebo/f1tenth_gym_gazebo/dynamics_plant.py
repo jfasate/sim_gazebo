@@ -87,6 +87,7 @@ class DynamicsPlant(Node):
         self.declare_parameter('vibration_pitch_deg', 0.0)
         self.declare_parameter('vibration_roll_deg', 0.0)
         self.declare_parameter('vibration_freq_hz', 2.0)
+        self.declare_parameter('vibration_heave_mm', 0.0)
         self.declare_parameter('vibration_speed_ref', 2.0)
         # The plant prescribes pose via /set_entity_state, so Gazebo contact
         # physics cannot block walls. This map guard makes occupied cells act
@@ -113,8 +114,9 @@ class DynamicsPlant(Node):
         self.vib_pitch = math.radians(float(self.get_parameter('vibration_pitch_deg').value))
         self.vib_roll = math.radians(float(self.get_parameter('vibration_roll_deg').value))
         self.vib_freq = float(self.get_parameter('vibration_freq_hz').value)
+        self.vib_heave = float(self.get_parameter('vibration_heave_mm').value) / 1000.0
         self.vib_vref = max(1e-3, float(self.get_parameter('vibration_speed_ref').value))
-        self.vib_phase = [random.uniform(0.0, 2.0 * math.pi) for _ in range(4)]
+        self.vib_phase = [random.uniform(0.0, 2.0 * math.pi) for _ in range(6)]
 
         # -- vehicle model --
         self.model = DoubleTrackModel(VehicleParams())
@@ -394,7 +396,7 @@ class DynamicsPlant(Node):
                 self._no_service_warned_t = t
             return
         X, Y, psi, vx, vy, r, delta, Fx_drive = self.state
-        pitch, roll = self._vibration(vx)
+        pitch, roll, heave = self._vibration(vx)
         qx, qy, qz, qw = rpy_to_quat(roll, pitch, psi)
         req = SetEntityState.Request()
         st = EntityState()
@@ -402,7 +404,7 @@ class DynamicsPlant(Node):
         st.reference_frame = 'world'
         st.pose.position.x = X
         st.pose.position.y = Y
-        st.pose.position.z = self.spawn_z
+        st.pose.position.z = self.spawn_z + heave
         st.pose.orientation.x = qx
         st.pose.orientation.y = qy
         st.pose.orientation.z = qz
@@ -416,17 +418,20 @@ class DynamicsPlant(Node):
         fut.add_done_callback(self._push_done)
 
     def _vibration(self, vx):
-        """Low-frequency chassis pitch/roll [rad]: two sines per axis (f and 1.9 f,
-        random phases), amplitude scaled by speed."""
-        if self.vib_pitch == 0.0 and self.vib_roll == 0.0:
-            return 0.0, 0.0
+        """Chassis pitch/roll [rad] and heave [m] (vertical bounce: camera + lidar move up
+        and down): two sines per axis (f and 1.9 f, random phases), amplitude scaled by
+        speed. Pose is written at `rate` (100 Hz), so f up to ~30 Hz is represented; the
+        camera samples it at its own frame rate (aliasing, as on a real camera)."""
+        if self.vib_pitch == 0.0 and self.vib_roll == 0.0 and self.vib_heave == 0.0:
+            return 0.0, 0.0, 0.0
         t = self.get_clock().now().nanoseconds * 1e-9
         w = 2.0 * math.pi * self.vib_freq
         k = min(1.0, abs(vx) / self.vib_vref)
         ph = self.vib_phase
         pitch = k * self.vib_pitch * (0.7 * math.sin(w * t + ph[0]) + 0.3 * math.sin(1.9 * w * t + ph[1]))
         roll = k * self.vib_roll * (0.7 * math.sin(w * t + ph[2]) + 0.3 * math.sin(1.9 * w * t + ph[3]))
-        return pitch, roll
+        heave = k * self.vib_heave * (0.7 * math.sin(w * t + ph[4]) + 0.3 * math.sin(1.9 * w * t + ph[5]))
+        return pitch, roll, heave
 
     def _push_done(self, fut):
         try:
